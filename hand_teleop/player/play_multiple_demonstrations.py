@@ -3,6 +3,7 @@ import numpy as np
 import pickle
 import imageio
 from argparse import ArgumentParser
+import torchvision.transforms as T
 
 from hand_teleop.env.rl_env.laptop_env import LaptopRLEnv
 from hand_teleop.env.rl_env.pick_place_env import PickPlaceRLEnv
