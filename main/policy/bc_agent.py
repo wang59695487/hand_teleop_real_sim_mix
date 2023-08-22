@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from models.vision.encoder import *
-from models.common.bc_network import *
+from models.vision.bc_network import *
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
