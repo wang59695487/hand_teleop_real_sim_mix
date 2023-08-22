@@ -6,6 +6,7 @@ Replay demos with ResNet50 as the vision backbone:
 ```bash
 python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=resnet50 
 python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=MoCo50 
+python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=vit_b_16 
 python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf
 python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=clip_RN50
 
@@ -42,7 +43,7 @@ python main/train.py \
     --eval-freq=100
 
 python main/train.py \
-    --demo-folder=sim/baked_data/xarm_less_random_pick_place_sugar_box \
+    --demo-folder=sim/baked_data/xarm_less_random_pick_place_mustard_bottle \
     --backbone-type=regnet_y_3_2gf \
     --eval-freq=100
 
@@ -53,29 +54,20 @@ python main/train.py \
 
 python main/train.py \
     --demo-folder=sim/baked_data/xarm_less_random_pick_place_mustard_bottle \
-    --backbone-type=regnet_y_3_2gf \
+    --backbone-type=vit_b_32 \
     --eval-only \
-    --ckpt=logs/Best_models/epoch_2000.pt
-    
-python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --delta-ee-pose-bound=0.0005\
-&& python main/train.py \
-    --demo-folder=real_sim_mix/baked_data/raw_data_pick_place_mustard_bottle \
-    --backbone-type=regnet_y_3_2gf \
-    --eval-freq=100
+    --ckpt=logs/Best_models/epoch_1100.pt
 
 python main/train.py \
-    --demo-folder=real_sim_mix/baked_data/raw_data_pick_place_mustard_bottle \
-    --backbone-type=regnet_y_3_2gf \
-    --eval-freq=100
+    --demo-folder=real/baked_data/raw_data_pick_place_mustard_bottle\
+    --backbone-type=regnet_y_3_2gf\
+    --eval-freq=100 \
+    --eval-start-epoch=200
 
-python main/train_real_sim.py \
-    --demo-folder=real_sim_mix/baked_data/raw_data_pick_place_mustard_bottle \
-    --backbone-type=regnet_y_3_2gf \
-    --eval-freq=100
+python main/train.py \
+    --demo-folder=./real_sim_mix/baked_data/raw_data_pick_place_mustard_bottle\
+    --backbone-type=regnet_y_3_2gf\
+    --eval-freq=100 
 
-python main/train_real_sim.py \
-    --demo-folder=real_sim_mix/baked_data/raw_data_pick_place_sugar_box \
-    --backbone-type=regnet_y_3_2gf \
-    --eval-freq=100
 
 The `eval-freq` argument specifies the frequency of evaluating and saving the model. which is 200 epochs in this case.
