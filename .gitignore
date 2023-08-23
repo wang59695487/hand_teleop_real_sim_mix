@@ -160,18 +160,17 @@ cython_debug/
 #.idea/
 
 data/
+assets/
+trained_models/
 .vscode/
 checkpoints/
 scripts/
-assets/
 wandb/
 wandb_cfg.yaml
 logs/
 *.zip
-trained_models/
 sim/
 runs/
-assets/
 real/
 real_sim_mix/
 temp/
