@@ -27,6 +27,9 @@ def play_multiple_sim_visual(args):
     # shutil.rmtree("./sim/baked_data/{}".format(dataset_folder),ignore_errors=True)
     if args['with_features']:
         assert args['backbone_type'] != None
+        model, preprocess = generate_feature_extraction_model(args['backbone_type'])
+        model = model.to(device)
+        model.eval()
     
     for file_name in os.listdir(args['sim_demo_folder']):
         if ".pickle" in file_name:
@@ -42,7 +45,7 @@ def play_multiple_sim_visual(args):
             visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], retarget=args['retarget'])
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
-        visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args)
+        visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model = model, preprocess = preprocess)
         # since here we are using sim data, we set sim_real_label = 0
         
     visual_training_set['sim_real_label'] = [0 for _ in range(len(visual_training_set['obs']))]
@@ -73,6 +76,9 @@ def play_multiple_real_visual(args):
     # shutil.rmtree("./sim/baked_data/{}".format(dataset_folder),ignore_errors=True)
     if args['with_features']:
         assert args['backbone_type'] != None
+        model, preprocess = generate_feature_extraction_model(args['backbone_type'])
+        model = model.to(device)
+        model.eval()
     
     for file_name in os.listdir(args['real_demo_folder']):
         if ".pkl" in file_name:
@@ -100,7 +106,7 @@ def play_multiple_real_visual(args):
                                                                     retarget=args['retarget'],using_real_data=True)
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
-        visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args)
+        visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model = model, preprocess = preprocess)
         # since here we are using real data, we set sim_real_label = 1
     
     visual_training_set['sim_real_label'] = [1 for _ in range(len(visual_training_set['obs']))]
@@ -131,6 +137,9 @@ def play_multiple_sim_real_visual(args):
 
     if args['with_features']:
         assert args['backbone_type'] != None
+        model, preprocess = generate_feature_extraction_model(args['backbone_type'])
+        model = model.to(device)
+        model.eval()
     
     for file_name in os.listdir(args['real_demo_folder']):
         if ".pkl" in file_name:
@@ -156,7 +165,7 @@ def play_multiple_sim_real_visual(args):
                                                                     retarget=args['retarget'],using_real_data=True)
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
-            visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args)
+            visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model = model, preprocess = preprocess)
 
     real_demo_length = len(visual_training_set['obs'])
     
@@ -492,16 +501,12 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
     return visual_baked, meta_data
 
-def stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args):
+def stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model, preprocess):
     # 0 menas sim, 1 means real here
     if args['with_features']:
         if 'state' in visual_training_set.keys():
             visual_training_set.pop('state')
             visual_training_set.pop('next_state')
-
-        model, preprocess = generate_feature_extraction_model(args['backbone_type'])
-        model = model.to(device)
-        model.eval()
         
         visual_demo_with_features = generate_features(visual_baked=visual_baked, model=model, preprocess=preprocess, stack_frames=args['stack_frames'],
                                                       num_data_aug=args['num_data_aug'],augmenter=args['image_augmenter'])
