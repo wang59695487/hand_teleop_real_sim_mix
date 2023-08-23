@@ -12,6 +12,8 @@ import pickle
 import os
 from PIL import Image
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 class FeatureExtractor(nn.Module):
   def __init__(self, backbone):
     super(FeatureExtractor, self).__init__()
