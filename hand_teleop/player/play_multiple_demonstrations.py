@@ -12,6 +12,8 @@ from hand_teleop.env.rl_env.pick_place_env import PickPlaceRLEnv
 from hand_teleop.env.rl_env.table_door_env import TableDoorRLEnv
 from hand_teleop.env.rl_env.insert_object_env import InsertObjectRLEnv
 from hand_teleop.env.rl_env.hammer_env import HammerRLEnv
+from hand_teleop.env.rl_env.dclaw_env import DClawRLEnv
+
 from hand_teleop.player.player import *
 from hand_teleop.player.randomization_utils import *
 from hand_teleop.real_world import lab
@@ -272,6 +274,8 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
     if task_name == 'pick_place':
         env = PickPlaceRLEnv(**env_params)
+    elif task_name == 'dclaw':
+        env = DClawRLEnv(**env_params)
     elif task_name == 'hammer':
         env = HammerRLEnv(**env_params)
     elif task_name == 'table_door':
@@ -335,6 +339,8 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
     # Player
     if task_name == 'pick_place':
         player = PickPlaceEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
+    elif task_name == 'dclaw':
+        player = DcLawEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
     elif task_name == 'hammer':
         player = HammerEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
     elif task_name == 'table_door':

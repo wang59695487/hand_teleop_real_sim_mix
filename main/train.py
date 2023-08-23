@@ -24,6 +24,7 @@ from hand_teleop.env.rl_env.mug_flip_env import MugFlipRLEnv
 from hand_teleop.env.rl_env.pick_place_env import PickPlaceRLEnv
 from hand_teleop.env.rl_env.insert_object_env import InsertObjectRLEnv
 from hand_teleop.env.rl_env.hammer_env import HammerRLEnv
+from hand_teleop.env.rl_env.dclaw_env import DClawRLEnv
 from logger import Logger
 from tqdm import tqdm
 from dataset.bc_dataset import RandomShiftsAug, argument_dependecy_checker, prepare_real_sim_data
@@ -100,6 +101,8 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
 
     if task_name == 'pick_place':
         env = PickPlaceRLEnv(**env_params)
+    elif task_name == 'dclaw':
+        env = DClawRLEnv(**env_params)
     elif task_name == 'hammer':
         env = HammerRLEnv(**env_params)
     elif task_name == 'table_door':

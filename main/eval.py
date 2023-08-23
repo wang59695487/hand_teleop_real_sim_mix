@@ -89,6 +89,8 @@ def main(args):
 
     if task_name == 'pick_place':
         env = PickPlaceRLEnv(**env_params)
+    elif task_name == 'dclaw':
+        env = DClawRLEnv(**env_params)
     elif task_name == 'hammer':
         env = HammerRLEnv(**env_params)
     elif task_name == 'table_door':

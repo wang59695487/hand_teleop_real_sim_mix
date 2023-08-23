@@ -819,6 +819,8 @@ def bake_demonstration_allegro_test(retarget=False):
     
     if task_name == 'pick_place':
         env = PickPlaceRLEnv(**env_params)
+    elif task_name == 'dclaw':
+        env = DClawRLEnv(**env_params)
     elif task_name == 'hammer':
         env = HammerRLEnv(**env_params)
     elif task_name == 'table_door':
@@ -864,6 +866,8 @@ def bake_demonstration_allegro_test(retarget=False):
     # Player
     if task_name == 'pick_place':
         player = PickPlaceEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
+    elif task_name == 'dclaw':
+        player = DcLawEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
     elif task_name == 'hammer':
         player = HammerEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
     elif task_name == 'table_door':
@@ -1027,7 +1031,9 @@ def bake_demonstration_mano():
     if 'init_target_pos' in meta_data["env_kwargs"].keys():
         env_params['init_target_pos'] = meta_data["env_kwargs"]['init_target_pos']
     if task_name == 'pick_place':
-        env = PickPlaceRLEnv(**env_params)
+        env = PickPlaceRLEnv(**env_params)'
+    elif task_name == 'dclaw':
+        env = DClawRLEnv(**env_params)
     elif task_name == 'hammer':
         env = HammerRLEnv(**env_params)
     elif task_name == 'table_door':
@@ -1049,6 +1055,8 @@ def bake_demonstration_mano():
     # Player
     if task_name == 'pick_place':
         player = PickPlaceEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
+    elif task_name == 'dclaw':
+        player = DcLawEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
     elif task_name == 'hammer':
         player = HammerEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
     elif task_name == 'table_door':
@@ -1155,6 +1163,8 @@ def bake_visual_demonstration_test(retarget=False):
         env_params['init_target_pos'] = meta_data["env_kwargs"]['init_target_pos']
     if task_name == 'pick_place':
         env = PickPlaceRLEnv(**env_params)
+    elif task_name == 'dclaw':
+        env = DClawRLEnv(**env_params)
     elif task_name == 'hammer':
         env = HammerRLEnv(**env_params)
     elif task_name == 'table_door':
@@ -1216,6 +1226,8 @@ def bake_visual_demonstration_test(retarget=False):
     # Player
     if task_name == 'pick_place':
         player = PickPlaceEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
+    elif task_name == 'dclaw':
+        player = DcLawEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
     elif task_name == 'hammer':
         player = HammerEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
     elif task_name == 'table_door':
@@ -1370,6 +1382,8 @@ def bake_visual_real_demonstration_test(retarget=False, index = 0):
         print(env_params['init_target_pos'])
     if task_name == 'pick_place':
         env = PickPlaceRLEnv(**env_params)
+    elif task_name == 'dclaw':
+        env = DClawRLEnv(**env_params)
     elif task_name == 'hammer':
         env = HammerRLEnv(**env_params)
     elif task_name == 'table_door':
@@ -1434,6 +1448,8 @@ def bake_visual_real_demonstration_test(retarget=False, index = 0):
     # Player
     if task_name == 'pick_place':
         player = PickPlaceEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
+    elif task_name == 'dclaw':
+        player = DcLawEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
     elif task_name == 'hammer':
         player = HammerEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
     elif task_name == 'table_door':

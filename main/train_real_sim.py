@@ -24,6 +24,8 @@ from hand_teleop.env.rl_env.mug_flip_env import MugFlipRLEnv
 from hand_teleop.env.rl_env.pick_place_env import PickPlaceRLEnv
 from hand_teleop.env.rl_env.insert_object_env import InsertObjectRLEnv
 from hand_teleop.env.rl_env.hammer_env import HammerRLEnv
+from hand_teleop.env.rl_env.dclaw_env import DClawRLEnv
+
 from logger import Logger
 from tqdm import tqdm
 from dataset.bc_dataset import RandomShiftsAug, argument_dependecy_checker, prepare_real_sim_data
@@ -100,6 +102,8 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
 
     if task_name == 'pick_place':
         env = PickPlaceRLEnv(**env_params)
+    elif task_name == 'dclaw'
+        env = DClawRLEnv(**env_params)
     elif task_name == 'hammer':
         env = HammerRLEnv(**env_params)
     elif task_name == 'table_door':
@@ -264,10 +268,15 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
                 # next_obs, reward, done, _ = env.step(action)
                 # NOTE For new version, uncomment below!
                 next_obs, reward, done, info = env.step(real_action)
-                if epoch != "best":
-                    info_success = info["is_object_lifted"] and info["success"]
-                else:
-                    info_success = info["success"]
+                if task_name = 'pick_place':
+                    if epoch != "best":
+                        if task_name = 'pick_place':
+                            info_success = info["is_object_lifted"] and info["success"]
+                    else:
+                        info_success = info["success"]
+                elif task_name = 'dclaw':
+
+                    info_success = info["is_object_rotated"] and info["object_total_rotate_angle"]>=360*3
                 
                 success = success or info_success
                 if success:
@@ -284,15 +293,18 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
                 obs = deepcopy(next_obs)
             
             #If it did not lift the object, consider it as 0.25 success
-            if epoch != "best" and info["success"]:
-                avg_success += 0.25
+            if task_name = 'pick_place':
+                if epoch != "best" and info["success"]:
+                    avg_success += 0.25
+                is_lifted = info["is_object_lifted"]
+                video_path = os.path.join(log_dir, f"epoch_{epoch}_{eval_idx}_{success}_{is_lifted}.mp4")
+            elif task_name = 'dclaw':
+                is_rotated = info["is_object_rotated"]
+                video_path = os.path.join(log_dir, f"epoch_{epoch}_{eval_idx}_{success}_{is_rotated}.mp4")
+            
             avg_success += int(success)
             video = (np.stack(video) * 255).astype(np.uint8)
 
-            #only save video if success or in the final_success evaluation
-            #if success or epoch == "best":
-            is_lifted = info["is_object_lifted"]
-            video_path = os.path.join(log_dir, f"epoch_{epoch}_{eval_idx}_{success}_{is_lifted}.mp4")
             #imageio version 2.28.1 imageio-ffmpeg version 0.4.8 scikit-image version 0.20.0
             imageio.mimsave(video_path, video, fps=120)
             eval_idx += 1

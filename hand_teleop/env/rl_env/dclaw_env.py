@@ -16,7 +16,7 @@ from hand_teleop.utils.common_robot_utils import generate_free_robot_hand_info, 
 
 class DClawRLEnv(DClawEnv, BaseRLEnv):
     def __init__(self, use_gui=False, frame_skip=5, robot_name="adroit_hand_free", constant_object_state=False,
-                 rotation_reward_weight=0, object_name="dclaw_3x", object_scale=1, randomness_scale=1, friction=1,
+                 rotation_reward_weight=0, object_name="dclaw_3x", object_seed = 0, object_scale=1, randomness_scale=1, friction=1,
                  object_pose_noise=0.01, zero_joint_pos=None, **renderer_kwargs):
         super().__init__(use_gui, frame_skip, object_name, object_scale, randomness_scale, friction, **renderer_kwargs)
 
@@ -29,6 +29,9 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
         self.constant_object_state = constant_object_state
         self.rotation_reward_weight = rotation_reward_weight
         self.object_pose_noise = object_pose_noise
+
+        self.object_angle = self.get_object_rotate_angle()
+        self.object_total_rotate_angle = 0
 
         # Parse link name
         if self.is_robot_free:
@@ -114,6 +117,7 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
             # init_pose = sapien.Pose(np.array([-0.55, 0, 0.17145]), transforms3d.euler.euler2quat(0, 0, 0))
         else:
             init_pose = sapien.Pose(np.array([-0.3, 0, 0.2]), transforms3d.euler.euler2quat(0, np.pi / 2, 0))
+
         self.robot.set_pose(init_pose)
         self.reset_internal()
         # reset the is_object_lifted flag
@@ -122,6 +126,9 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
         # random_quat = transforms3d.euler.euler2quat(*(self.np_random.randn(3) * self.object_pose_noise * 10))
         # random_pos = self.np_random.randn(3) * self.object_pose_noise
         # self.object_episode_init_pose = self.object_episode_init_pose * sapien.Pose(random_pos, random_quat)
+        self.object_angle = self.get_object_rotate_angle()
+        self.object_total_rotate_angle = 0
+
         return self.get_observation()
 
     @cached_property
@@ -138,60 +145,27 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
     def horizon(self):
         return 250
 
-    def _is_object_plate_contact(self):
+    def get_object_rotate_angle(self):
         # check if the object is in contact with the plate
-        all_contacts = self.scene.get_contacts()
-        object_plate_contact = False
-        for contact in all_contacts:
-            if "plate" in contact.actor0.name and contact.actor1.name == self.manipulated_object.name:
-                object_plate_contact = True
-                break
-            elif "plate" in contact.actor1.name and contact.actor0.name == self.manipulated_object.name:
-                object_plate_contact = True
-                break
+        for link in self.manipulated_object.get_links():
+            if "up" in link.get_name():
+                rotate_object_qpos = link.get_pose().q
+                z,x,y = transforms3d.euler.quat2euler(rotate_object_qpos)
+                z_angle = np.rad2deg(z)
 
-        return object_plate_contact
+        return z_angle
 
-    def _is_close_to_target(self):
+    def _is_object_rotated(self):
         # check the x-y position of the object against the target
-        object_xy = self.manipulated_object.pose.p[:-1]
-        target_xy = self.target_pose.p[:-1]
-        dist_xy = np.linalg.norm(object_xy - target_xy)
-        close_to_target = dist_xy <= 0.25
+        delta_angle = self.get_object_rotate_angle() - self.object_angle
+        self.object_angle = self.get_object_rotate_angle()
+        self.object_total_rotate_angle += np.fabs(delta_angle)
 
-        return close_to_target
-
-    def _is_object_lifted(self):
-        # check the x-y position of the object against the target
-        object_z = self.manipulated_object.pose.p[-1]
-        if object_z >= 0.105:
-            self.is_object_lifted = True
-
-        return self.is_object_lifted
-
-    def _is_object_still(self):
-        # check if the object is close to still
-        velocity_norm = np.linalg.norm(self.manipulated_object.velocity)
-        object_is_still = velocity_norm <= 1e-6
-
-        return object_is_still
-
-    def _is_success(self):
-
-        # print({
-        #     "dist_xy": f"{dist_xy:.6}",
-        #     "velocity_norm": f"{velocity_norm:.6f}",
-        #     "object_plate_contact": object_plate_contact,
-        #     "close_to_target": close_to_target,
-        #     "object_is_still": object_is_still,
-        # })
-
-        return self._is_object_plate_contact() and self._is_close_to_target()
+        return delta_angle != 0
 
     def get_info(self):
-        return {"object_plate_contact": self._is_object_plate_contact(),
-                "is_object_lifted": self._is_object_lifted(),
-                "success": self._is_success()}
+        return {"is_object_rotated": self._is_object_rotated(),
+                "object_total_rotate_angle": self.object_total_rotate_angle}
 
 
 def main_env():
