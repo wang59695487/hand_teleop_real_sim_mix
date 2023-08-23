@@ -24,15 +24,13 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def play_multiple_sim_visual(args):
     demo_files = []
-    dataset_folder = '{}_{}_{}'.format(args['sim_demo_folder'].split('/')[-3],args['sim_demo_folder'].split('/')[-2],args['sim_demo_folder'].split('/')[-1])
-    os.makedirs("./sim/baked_data/{}".format(dataset_folder), exist_ok=True)
+    # dataset_folder = '{}_{}_{}'.format(args['sim_demo_folder'].split('/')[-3],args['sim_demo_folder'].split('/')[-2],args['sim_demo_folder'].split('/')[-1])
+    # os.makedirs("./sim/baked_data/{}".format(dataset_folder), exist_ok=True)
+    dataset_folder = args["out_folder"]
+    os.makedirs(dataset_folder, exist_ok=True)
     # shutil.rmtree("./sim/baked_data/{}".format(dataset_folder),ignore_errors=True)
     if args['with_features']:
         assert args['backbone_type'] != None
-        model, preprocess = generate_feature_extraction_model(args['backbone_type'])
-        model = model.to(device)
-        model.eval()
-    
     for file_name in os.listdir(args['sim_demo_folder']):
         if ".pickle" in file_name:
             demo_files.append(os.path.join(args['sim_demo_folder'], file_name))
@@ -40,6 +38,11 @@ def play_multiple_sim_visual(args):
     print('---------------------')
     visual_training_set = dict(obs=[], next_obs=[], state=[], next_state=[], action=[], robot_qpos=[], sim_real_label=[])
     init_obj_poses = []
+
+    model, preprocess = generate_feature_extraction_model(args["backbone_type"])
+    model = model.to("cuda:0")
+    model.eval()
+
     for demo_id, file_name in enumerate(demo_files):
         print(file_name)
         with open(file_name, 'rb') as file:
@@ -47,7 +50,7 @@ def play_multiple_sim_visual(args):
             visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], retarget=args['retarget'])
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
-        visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model = model, preprocess = preprocess)
+        visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model, preprocess)
         # since here we are using sim data, we set sim_real_label = 0
         
     visual_training_set['sim_real_label'] = [0 for _ in range(len(visual_training_set['obs']))]
@@ -62,19 +65,19 @@ def play_multiple_sim_visual(args):
         print("Shape of observations: {}".format(visual_training_set['obs'][0].shape))
         print("Shape of Robot_qpos: {}".format(visual_training_set['robot_qpos'][0].shape))
         print("Action dimension: {}".format(len(visual_training_set['action'][0])))
-        dataset_path = "./sim/baked_data/{}/{}_dataset.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
+        dataset_path = "{}/{}_dataset.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
         with open(dataset_path,'wb') as file:
             pickle.dump(visual_training_set, file)
     print('dataset is saved in the folder: ./sim/baked_data/{}'.format(dataset_folder))
-    meta_data_path = "./sim/baked_data/{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
+    meta_data_path = "{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
     meta_data['init_obj_poses'] = init_obj_poses
     with open(meta_data_path,'wb') as file:
         pickle.dump(meta_data, file)
 
 def play_multiple_real_visual(args):  
     demo_files = []
-    dataset_folder = '{}_{}'.format(args['real_demo_folder'].split('/')[-2],args['real_demo_folder'].split('/')[-1])
-    os.makedirs("./real/baked_data/{}".format(dataset_folder), exist_ok=True)
+    dataset_folder = args["out_folder"]
+    os.makedirs(dataset_folder, exist_ok=True)
     # shutil.rmtree("./sim/baked_data/{}".format(dataset_folder),ignore_errors=True)
     if args['with_features']:
         assert args['backbone_type'] != None
@@ -123,19 +126,19 @@ def play_multiple_real_visual(args):
         print("Shape of observations: {}".format(visual_training_set['obs'][0].shape))
         print("Action dimension: {}".format(len(visual_training_set['action'][0])))
         print("Robot_qpos dimension: {}".format(len(visual_training_set['robot_qpos'][0])))
-        dataset_path = "./real/baked_data/{}/{}_dataset.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
+        dataset_path = "{}/{}_dataset.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
         with open(dataset_path,'wb') as file:
             pickle.dump(visual_training_set, file)
     print('dataset is saved in the folder: ./sim/baked_data/{}'.format(dataset_folder))
-    meta_data_path = "./real/baked_data/{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
+    meta_data_path = "{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
     meta_data['init_obj_poses'] = init_obj_poses
     with open(meta_data_path,'wb') as file:
         pickle.dump(meta_data, file)
 
 def play_multiple_sim_real_visual(args):  
     demo_files = []
-    dataset_folder = '{}_{}'.format(args['real_demo_folder'].split('/')[-2],args['real_demo_folder'].split('/')[-1])
-    os.makedirs("./real_sim_mix/baked_data/{}".format(dataset_folder), exist_ok=True)
+    dataset_folder = args["out_folder"]
+    os.makedirs(dataset_folder, exist_ok=True)
 
     if args['with_features']:
         assert args['backbone_type'] != None
@@ -202,11 +205,11 @@ def play_multiple_sim_real_visual(args):
         print("Robot_qpos dimension: {}".format(len(visual_training_set['robot_qpos'][0])))
         print("Real_Demos: {}".format(real_demo_length))
         print("Sim_Demos: {}".format(sim_demo_length))
-        dataset_path = "./real_sim_mix/baked_data/{}/{}_dataset.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
+        dataset_path = "{}/{}_dataset.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
         with open(dataset_path,'wb') as file:
             pickle.dump(visual_training_set, file)
     print('dataset is saved in the folder: ./real_sim_mix/baked_data/{}'.format(dataset_folder))
-    meta_data_path = "./real_sim_mix/baked_data/{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
+    meta_data_path = "{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
     meta_data['init_obj_poses'] = init_obj_poses
     with open(meta_data_path,'wb') as file:
         pickle.dump(meta_data, file)
@@ -513,9 +516,8 @@ def stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_fo
         if 'state' in visual_training_set.keys():
             visual_training_set.pop('state')
             visual_training_set.pop('next_state')
-        
-        visual_demo_with_features = generate_features(visual_baked=visual_baked, model=model, preprocess=preprocess, stack_frames=args['stack_frames'],
-                                                      num_data_aug=args['num_data_aug'],augmenter=args['image_augmenter'])
+        visual_demo_with_features = generate_features(visual_baked=visual_baked, backbone_type=args['backbone_type'], stack_frames=args['stack_frames'],
+                                                      num_data_aug=args['num_data_aug'],augmenter=args['image_augmenter'], model=model, preprocess=preprocess)
         stacked_next_obs = visual_demo_with_features['obs'][1:]
         stacked_obs = visual_demo_with_features['obs'][:-1]
         actions = visual_demo_with_features['action'][:-1]
@@ -577,22 +579,16 @@ def stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_fo
                 pickle.dump(frame, file)
         visual_training_set = dict(obs=[], next_obs=[], state=[], next_state=[], action=[], robot_qpos=[])
     
-    return visual_training_set        
+    return visual_training_set
 
 
 def parse_args():
     parser = ArgumentParser()
-    # parser.add_argument("--robot-name", default="xarm6_allegro_modified_finger")
-    # parser.add_argument("--use-true-state", default=False, type=bool)
-    # parser.add_argument("--with-features", default=True, type=bool)
-    parser.add_argument("--backbone-type", default="resnet50")
+    parser.add_argument("--backbone-type", required=True)
     parser.add_argument("--delta-ee-pose-bound", default="0.0005", type=float)
-    # parser.add_argument("--pretrained", default="MoCo50")
-    # parser.add_argument("--stack-frames", default=True, type=bool)
-    # parser.add_argument("--retarget", default=False, type=bool)
-    # parser.add_argument("--save-each-frame", default=False, type=bool)
-    # parser.add_argument("--domain-randomization", default=False, type=bool)
-    # parser.add_argument("--randomization-prob", default=0, type=float)
+    parser.add_argument("--sim-folder", default=None)
+    parser.add_argument("--real-folder", default=None)
+    parser.add_argument("--out-folder", required=True)
     args = parser.parse_args()
 
     return args
@@ -608,8 +604,11 @@ if __name__ == '__main__':
         #'sim_demo_folder': None,
         #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle',
         #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_tomato_soup_can',
-        'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_sugar_box',
-        'real_demo_folder': None,
+        # 'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_sugar_box',
+        "sim_demo_folder": args.sim_folder,
+        "real_demo_folder": args.real_folder,
+        "out_folder": args.out_folder,
+        # 'real_demo_folder': None,
         #'real_demo_folder' : './real/raw_data/pick_place_mustard_bottle',
         #'real_demo_folder' : './real/raw_data/pick_place_tomato_soup_can',
         #'real_demo_folder' : './real/raw_data/pick_place_sugar_box',
@@ -627,7 +626,7 @@ if __name__ == '__main__':
         'image_augmenter': T.AugMix(),
         'delta_ee_pose_bound': args.delta_ee_pose_bound,
     }
-    
+
     if args['sim_demo_folder'] is not None and args['real_demo_folder'] is None:
         print("##########################Using Only Sim##################################")
         play_multiple_sim_visual(args)
