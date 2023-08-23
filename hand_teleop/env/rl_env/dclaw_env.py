@@ -150,8 +150,8 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
         for link in self.manipulated_object.get_links():
             if "up" in link.get_name():
                 rotate_object_qpos = link.get_pose().q
-                z,x,y = transforms3d.euler.quat2euler(rotate_object_qpos)
-                z_angle = np.rad2deg(z)
+                x,y,z = transforms3d.euler.quat2euler(rotate_object_qpos)
+                z_angle = z/np.pi*180
 
         return z_angle
 

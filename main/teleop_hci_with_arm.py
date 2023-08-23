@@ -12,6 +12,7 @@ from hand_teleop.env.sim_env.laptop_env import LaptopEnv
 from hand_teleop.env.sim_env.insert_object_env import InsertObjectEnv
 from hand_teleop.env.sim_env.hammer_env import HammerEnv
 from hand_teleop.env.sim_env.mug_flip_env import MugFlipEnv
+from hand_teleop.env.sim_env.dclaw_env import DClawEnv
 from hand_teleop.player.recorder import DataRecorder
 from hand_teleop.teleop.teleop_gui import GUIBase, DEFAULT_TABLE_TOP_CAMERAS
 from hand_teleop.utils.common_robot_utils import load_robot
@@ -27,7 +28,8 @@ def main():
     # robot_name = "xarm6_allegro_wrist_mounted_rotate"
     demo_index = 0
     frame_skip = 5
-    task_name = "pick_place"
+    #task_name = "pick_place"
+    task_name = "dclaw"
 
     object_names = ['tomato_soup_can', 'bleach_cleanser', 'mug', 'banana', "mustard_bottle", "potted_meat_can", "sugar_box"]
     if args.object is not None:
@@ -70,6 +72,13 @@ def main():
         env.reset_env()
         env_dict = dict(task_name=task_name, object_name=object_name, object_scale=object_scale, randomness_scale=randomness_scale, 
                         init_obj_pos=env.init_pose, init_target_pos=env.target_pose)
+        demo_name = '{}_{}'.format(object_name, demo_name)
+    elif task_name == "dclaw":
+        object_name="dclaw_3x" 
+        env = DClawEnv(object_seed = demo_name, frame_skip=frame_skip, object_scale=object_scale, randomness_scale=randomness_scale)
+        env.reset_env()
+        env_dict = dict(task_name=task_name, object_name=object_name, object_scale=object_scale, randomness_scale=randomness_scale, 
+                        init_obj_pos=env.init_pose)
         demo_name = '{}_{}'.format(object_name, demo_name)
     elif task_name == 'insert_object':
         env = InsertObjectEnv(frame_skip=frame_skip)

@@ -248,7 +248,7 @@ class RelocateObjectEnvPlayer(DataPlayer):
             baked_data["obs"].append(self.env.get_observation())
 
             # Environment state
-            baked_data["state"].append(self.collect_env_state([manipulated_object]))
+            #baked_data["state"].append(self.collect_env_state([manipulated_object]))
 
         baked_data["action"].append(baked_data["action"][-1])
         return baked_data
@@ -617,7 +617,7 @@ class DcLawEnvPlayer(DataPlayer):
             # Environment observation
             baked_data["obs"].append(self.env.get_observation())
             # Environment state
-            baked_data["state"].append(self.collect_env_state([manipulated_object]))
+            #baked_data["state"].append(self.collect_env_state([manipulated_object]))
 
         if use_human_hand:
             baked_data["action"].append(baked_data["action"][-1])
@@ -1196,7 +1196,8 @@ def bake_visual_demonstration_test(retarget=False):
     os.makedirs('./temp/demos/player')
     #path = "./sim/raw_data/xarm/less_random/pick_place_mustard_bottle/mustard_bottle_0050.pickle"
     #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0011.pickle"
-    path = "sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0050.pickle"
+    #path = "sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0050.pickle"
+    path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
     all_data = np.load(path, allow_pickle=True)
     meta_data = all_data["meta_data"]
     task_name = meta_data["env_kwargs"]['task_name']
@@ -1345,7 +1346,7 @@ def bake_visual_demonstration_test(retarget=False):
 
     ee_pose = baked_data["ee_pose"][0]
     hand_qpos_prev = baked_data["action"][0][env.arm_dof:]
-    for idx, (obs, qpos, state, action, ee_pose) in enumerate(zip(baked_data["obs"], baked_data["robot_qpos"], baked_data["state"],
+    for idx, (obs, qpos, action, ee_pose) in enumerate(zip(baked_data["obs"], baked_data["robot_qpos"],
                                         baked_data["action"], baked_data["ee_pose"])):
         # NOTE: robot.get_qpos() version
         if idx != len(baked_data['obs'])-1:
@@ -1355,7 +1356,7 @@ def bake_visual_demonstration_test(retarget=False):
             
             delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
             if ee_pose_delta < 0.0005 and average_angle_handqpos(delta_hand_qpos)<=np.pi/180 :
-                print("!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!")
+                #print("!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!")
                 continue
 
             else:
@@ -1385,6 +1386,7 @@ def bake_visual_demonstration_test(retarget=False):
                 visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                 _, _, _, info = env.step(target_qpos)
                 env.render()
+                print("delta_angle",env.object_total_rotate_angle)
                 robot_qpos = np.concatenate([env.robot.get_qpos(),env.ee_link.get_pose().p,env.ee_link.get_pose().q])
                 #print("robot_qpos",robot_qpos)
                 
