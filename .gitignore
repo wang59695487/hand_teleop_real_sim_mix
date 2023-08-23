@@ -163,15 +163,12 @@ data/
 .vscode/
 checkpoints/
 scripts/
-assets/
 wandb/
 wandb_cfg.yaml
 logs/
 *.zip
-trained_models/
-sim/
+sim/baked_data
 runs/
-assets/
 real/
 real_sim_mix/
 temp/
