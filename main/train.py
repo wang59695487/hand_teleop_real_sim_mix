@@ -180,8 +180,8 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
     # since in simulation, we always use simulated data, so sim_real_label is always 0
     sim_real_label = [0]
 
-    for x in np.linspace(-0.1, 0.1, x_steps):        # -0.08 0.08 /// -0.05 0
-        for y in np.linspace(0.2, 0.3, y_steps):  # 0.12 0.18 /// 0.12 0.32
+    for x in np.linspace(-0.08, 0.08, x_steps):        # -0.08 0.08 /// -0.05 0
+        for y in np.linspace(0.22, 0.28, y_steps):  # 0.12 0.18 /// 0.12 0.32
             video = []
             idx = np.random.randint(len(meta_data['init_obj_poses']))
             sampled_pos = meta_data['init_obj_poses'][idx]
@@ -466,9 +466,9 @@ if __name__ == '__main__':
         'dataset_folder': args.demo_folder,
         'batch_size': 65536,
         'val_ratio': 0.1,
-        'bc_lr': 3e-5,
-        'num_epochs': 2000,
-        'weight_decay': 1e-3,
+        'bc_lr': 2e-5,
+        'num_epochs': 1600,
+        'weight_decay': 1e-2,
         'model_name': '',
         'resume': False,
         'load_model_from': None,

@@ -3,6 +3,8 @@ import numpy as np
 import pickle
 import imageio
 from argparse import ArgumentParser
+
+import torch
 import torchvision.transforms as T
 
 from hand_teleop.env.rl_env.laptop_env import LaptopRLEnv
@@ -14,8 +16,9 @@ from hand_teleop.player.player import *
 from hand_teleop.player.randomization_utils import *
 from hand_teleop.real_world import lab
 
-from main.feature_extractor import generate_features
+from main.feature_extractor import generate_features, generate_feature_extraction_model
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def play_multiple_sim_visual(args):
     demo_files = []
@@ -495,7 +498,12 @@ def stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_fo
         if 'state' in visual_training_set.keys():
             visual_training_set.pop('state')
             visual_training_set.pop('next_state')
-        visual_demo_with_features = generate_features(visual_baked=visual_baked, backbone_type=args['backbone_type'], stack_frames=args['stack_frames'],
+
+        model, preprocess = generate_feature_extraction_model(args['backbone_type'])
+        model = model.to(device)
+        model.eval()
+        
+        visual_demo_with_features = generate_features(visual_baked=visual_baked, model=model, preprocess=preprocess, stack_frames=args['stack_frames'],
                                                       num_data_aug=args['num_data_aug'],augmenter=args['image_augmenter'])
         stacked_next_obs = visual_demo_with_features['obs'][1:]
         stacked_obs = visual_demo_with_features['obs'][:-1]
