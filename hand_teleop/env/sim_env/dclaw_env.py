@@ -59,6 +59,7 @@ class DClawEnv(BaseSimulationEnv):
         loader.load_multiple_collisions_from_file = True
         builder = loader.load_file_as_articulation_builder(str(urdf_path))
         self.manipulated_object = builder.build(fix_root_link=True)
+        self.generate_random_object_texture()
 
     def generate_random_object_pose(self, randomness_scale):
         random.seed(self.object_seed)
@@ -67,6 +68,23 @@ class DClawEnv(BaseSimulationEnv):
         position = np.array([pos_x, pos_y, 0.0])
         random_pose = sapien.Pose(position)
         return random_pose
+    
+    def generate_random_object_texture(self):
+        random.seed(self.object_seed)
+        for link in self.manipulated_object.get_links():
+            if link.get_name() == "dclaw_up":
+                default_color = np.array([1, 1, 1, 1])
+            elif link.get_name() == "dclaw_down":
+                default_color = np.array([1, 0, 0, 1])
+
+            for visual in link.get_visual_bodies():
+                for geom in visual.get_render_shapes():
+                    mat = geom.material
+                    mat.set_base_color(default_color)
+                    mat.set_specular(0.2)
+                    mat.set_roughness(0.7)
+                    mat.set_metallic(0.1)
+                    geom.set_material(mat)
 
     def reset_env(self):
         # pose = self.generate_random_object_pose(self.randomness_scale)
