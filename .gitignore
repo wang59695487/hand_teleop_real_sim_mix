@@ -160,6 +160,8 @@ cython_debug/
 #.idea/
 
 data/
+assets/
+trained_models/
 .vscode/
 checkpoints/
 scripts/
@@ -167,7 +169,7 @@ wandb/
 wandb_cfg.yaml
 logs/
 *.zip
-sim/baked_data
+sim/
 runs/
 real/
 real_sim_mix/
