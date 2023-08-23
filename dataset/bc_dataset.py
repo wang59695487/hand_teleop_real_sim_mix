@@ -137,8 +137,9 @@ def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_ba
     else:
         print("=== preparing only sim or real data: ===")
         print("=== demo_length: ===")
-        print(len(data["sim_real_label"]))
-        it_per_epoch, bc_train_set, bc_train_dataloader, bc_validation_dataloader = prepare_data(data, real_batch_size, val_ratio, seed)
+        # print(len(data["sim_real_label"]))
+        data_type = "sim" if dataset_folder.split("/")[0] == "sim" else "real"
+        it_per_epoch, bc_train_set, bc_train_dataloader, bc_validation_dataloader = prepare_data(data, real_batch_size, val_ratio, seed, data_type)
         Prepared_Data = {"it_per_epoch": it_per_epoch, "bc_train_set": bc_train_set, "bc_train_dataloader": bc_train_dataloader, 
                      "bc_validation_dataloader": bc_validation_dataloader}
 
@@ -147,7 +148,8 @@ def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_ba
     
 
 
-def prepare_data(data, batch_size , val_ratio = 0.1, seed = 0):
+def prepare_data(data, batch_size , val_ratio = 0.1, seed = 0,
+        data_type="sim_real"):
     
     np.random.seed(seed)
     random_order = np.random.permutation(len(data["action"]))
@@ -160,7 +162,12 @@ def prepare_data(data, batch_size , val_ratio = 0.1, seed = 0):
     robot_qpos = robot_qpos[random_order]
     targets = np.array(data["action"])
     targets = targets[random_order]
-    labels = np.array(data["sim_real_label"])
+    if data_type == "sim":
+        labels = np.zeros(obs.shape[0])
+    elif data_type == "real":
+        labels = np.ones(obs.shape[0])
+    else:
+        labels = np.array(data["sim_real_label"])
     labels = labels[random_order]
     cutoff = int(len(obs) * val_ratio)
     train_data = dict(obs=obs[cutoff:], next_obs=next_obs[cutoff:], action=targets[cutoff:], robot_qpos=robot_qpos[cutoff:], sim_real_label=labels[cutoff:])
@@ -170,7 +177,7 @@ def prepare_data(data, batch_size , val_ratio = 0.1, seed = 0):
     bc_validation_set = BCDataset(data_paths=None, data=validation_data)
     bc_train_dataloader = DataLoader(bc_train_set, batch_size=batch_size, shuffle=True)
     bc_validation_dataloader = DataLoader(bc_validation_set, batch_size=len(bc_validation_set), shuffle=False)
-    it_per_epoch = len(bc_train_set) // batch_size
+    it_per_epoch = max(len(bc_train_set) // batch_size, 1)
     print('  ', 'total number of training samples', len(bc_train_set))
     print('  ', 'total number of validation samples', len(bc_validation_set))
     print('  ', 'number of iters per epoch', it_per_epoch)

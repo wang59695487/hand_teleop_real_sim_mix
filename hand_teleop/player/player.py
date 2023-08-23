@@ -22,6 +22,14 @@ from hand_teleop.kinematics.mano_robot_hand import MANORobotHand
 from hand_teleop.kinematics.retargeting_optimizer import PositionRetargeting
 from hand_teleop.real_world import lab
 
+def compute_inverse_kinematics(delta_pose_world, palm_jacobian, damping=0.05):
+    lmbda = np.eye(6) * (damping ** 2)
+    # When you need the pinv for matrix multiplication, always use np.linalg.solve but not np.linalg.pinv
+    delta_qpos = palm_jacobian.T @ \
+                 np.linalg.lstsq(palm_jacobian.dot(palm_jacobian.T) + lmbda, delta_pose_world, rcond=None)[0]
+
+    return delta_qpos
+
 
 class DataPlayer:
     def __init__(self, meta_data: Dict[str, Any], data: Dict[str, Any], env: BaseRLEnv,
@@ -481,32 +489,74 @@ class PickPlaceEnvPlayer(DataPlayer):
                  zero_joint_pos: Optional[np.ndarray] = None):
         super().__init__(meta_data, data, env, zero_joint_pos)
 
-    def bake_demonstration(self, retargeting: Optional[PositionRetargeting] = None, method="tip_middle", indices=None):
+    def bake_demonstration(self, retargeting: Optional[PositionRetargeting] = None, method="tip_middle", indices=None,
+                init_pose_aug=None):
         use_human_hand = self.human_robot_hand is not None and retargeting is not None
         baked_data = dict(obs=[], robot_qpos=[], state=[], action=[], robot_qvel=[], ee_pose=[])
         manipulated_object = self.env.manipulated_object
         use_local_pose = False
 
-        # Set target as pose
         self.scene.unpack(self.get_sim_data(0))
+
+        if init_pose_aug is not None:
+            robot = self.env.robot
+            arm_dof = self.env.arm_dof
+            ee_link = self.env.ee_link
+
+            ik_steps = 100
+            aug_ee_pose = init_pose_aug * ee_link.get_pose()
+            for i in range(ik_steps):
+                # TODO: translation only for init pose aug
+                current_ee_pose = ee_link.get_pose()
+                delta_pose_ee_frame = current_ee_pose.inv() * aug_ee_pose
+                delta_pos_ee = current_ee_pose.to_transformation_matrix()[:3, :3] @ delta_pose_ee_frame.p
+                delta_pose_world = np.concatenate([delta_pos_ee, np.zeros(3)])
+                palm_jacobian = self.env.kinematic_model.compute_end_link_spatial_jacobian(robot.get_qpos()[:arm_dof])
+                delta_q = compute_inverse_kinematics(delta_pose_world, palm_jacobian)
+                delta_q_step = delta_q / ik_steps * (i + 1)
+                next_qpos_arm = robot.get_qpos()[:arm_dof] + delta_q_step
+                next_qpos = np.concatenate([next_qpos_arm, robot.get_qpos()[arm_dof:]])
+                robot.set_qpos(next_qpos)
+
+            # Set target as pose
+            manipulated_object.set_pose(init_pose_aug * manipulated_object.get_pose())
+            self.env.plate.set_pose(init_pose_aug * self.env.plate.get_pose())
+
         init_pose = manipulated_object.get_pose()
         baked_data["init_pose"] = np.concatenate([init_pose.p, init_pose.q])
-        self.scene.step()
+        # self.scene.step()
 
         for i in range(self.meta_data["data_len"]):
-            for _ in range(self.env.frame_skip):
-                self.scene.step()
+            # for _ in range(self.env.frame_skip):
+            #     self.scene.step()
             self.scene.unpack(self.get_sim_data(i))
+            if init_pose_aug is not None:
+                aug_ee_pose = init_pose_aug * ee_link.get_pose()
+                for ii in range(ik_steps):
+                    # TODO: translation only for init pose aug
+                    current_ee_pose = ee_link.get_pose()
+                    delta_pose_ee_frame = current_ee_pose.inv() * aug_ee_pose
+                    delta_pos_ee = current_ee_pose.to_transformation_matrix()[:3, :3] @ delta_pose_ee_frame.p
+                    delta_pose_world = np.concatenate([delta_pos_ee, np.zeros(3)])
+                    palm_jacobian = self.env.kinematic_model.compute_end_link_spatial_jacobian(robot.get_qpos()[:arm_dof])
+                    delta_q = compute_inverse_kinematics(delta_pose_world, palm_jacobian)
+                    delta_q_step = delta_q / ik_steps * (ii + 1)
+                    next_qpos_arm = robot.get_qpos()[:arm_dof] + delta_q_step
+                    next_qpos = np.concatenate([next_qpos_arm, robot.get_qpos()[arm_dof:]])
+                    robot.set_qpos(next_qpos)
+                manipulated_object.set_pose(init_pose_aug * manipulated_object.get_pose())
+                self.env.plate.set_pose(init_pose_aug * self.env.plate.get_pose())
+            # self.env.render()
 
             # Robot qpos
             if use_human_hand:
                 contact_finger_index = self.human_robot_hand.check_contact_finger([manipulated_object])
                 if method == "tip_middle":
                     qpos = self.get_finger_tip_middle_retargeting_result(self.human_robot_hand, retargeting, indices,
-                                                                         use_root_local_pose=use_local_pose)
+                                                                            use_root_local_pose=use_local_pose)
                 elif method == "tip":
                     qpos = self.get_finger_tip_retargeting_result(self.human_robot_hand, retargeting, indices,
-                                                                  use_root_local_pose=use_local_pose)
+                                                                    use_root_local_pose=use_local_pose)
                 else:
                     raise ValueError(f"Retargeting method {method} is not supported")
             else:
@@ -528,8 +578,9 @@ class PickPlaceEnvPlayer(DataPlayer):
             else:
                 if use_human_hand:
                     if i >= 1:
-                        baked_data["action"].append(self.compute_action_from_states(baked_data["robot_qpos"][i - 1], qpos,
-                                                                                    np.sum(contact_finger_index) > 0))
+                        baked_data["action"].append(
+                            self.compute_action_from_states(baked_data["robot_qpos"][i - 1], qpos,
+                                                            np.sum(contact_finger_index) > 0))
                     if i >= 2:
                         duration = self.env.frame_skip * self.scene.get_timestep()
                         finger_qvel = (baked_data["action"][-1][6:] - baked_data["action"][-2][6:]) / duration

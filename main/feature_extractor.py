@@ -274,7 +274,7 @@ def concate_features(features, stack_robot_qpos, stack_frames = True):
 
   return concatenated_obs, concatenated_robot_qpos
 
-def generate_features(visual_baked, backbone_type="ResNet34", stack_frames=False, encode=False, num_data_aug=5, augmenter = T.AugMix()):
+def generate_features(visual_baked, model, preprocess, backbone_type="ResNet34", stack_frames=False, encode=False, num_data_aug=5, augmenter = T.AugMix()):
   
   raw_imgs = []
   robot_states = []
@@ -282,9 +282,6 @@ def generate_features(visual_baked, backbone_type="ResNet34", stack_frames=False
 
   target_actions = []
   stack_robot_qpos = []
-  model, preprocess = generate_feature_extraction_model(backbone_type)
-  model = model.to(device)
-  model.eval()
   
   for i in range(len(visual_baked["action"])):
     act = visual_baked["action"][i]
