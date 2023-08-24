@@ -1141,7 +1141,7 @@ def bake_visual_demonstration_test(dataset_folder, demo_index, init_pose_aug, ta
 
 if __name__ == '__main__':
     #augmenter_list = [-0.06,0.06,-0.05,0.05,-0.04,0.04,-0.03,0.03]
-    augmenter_list = [-0.07,0.07,-0.06,0.06,-0.05,0.05]
+    augmenter_list = [-0.09,0.09,-0.07,0.07,-0.05,0.05]
     for idx1 in range(len(augmenter_list)):
         for idx2 in range(len(augmenter_list)):
             x = augmenter_list[idx1]
@@ -1162,6 +1162,8 @@ if __name__ == '__main__':
 
             dataset_folder = f"{out_folder}/{num_test}.pickle"
             for demo_index in range(1, 51):
+                if demo_index == 2:
+                    continue
                 info_success,video = bake_visual_demonstration_test(dataset_folder=dataset_folder, demo_index=demo_index, task_name=task_name, object_name=object_name,
                                             init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]))
                 if info_success:
