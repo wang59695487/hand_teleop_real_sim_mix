@@ -1161,7 +1161,9 @@ if __name__ == '__main__':
                 continue
 
             task_name = "pick_place"
-            object_name = "sugar_box"
+            object_name = "tomato_soup_can"
+            #object_name = "sugar_box"
+            #object_name = "mustard_bottle"
             out_folder = f"./sim/baked_augmentation/{task_name}_{object_name}_aug/"
             os.makedirs(out_folder, exist_ok=True)
             if len(os.listdir(out_folder)) == 0:
@@ -1170,7 +1172,7 @@ if __name__ == '__main__':
                 pkl_files = os.listdir(out_folder)
                 last_num = sorted([int(x.replace(".pickle", "").split("_")[-1]) for x in pkl_files])[-1]
                 num_test = str(last_num + 1).zfill(4)
-            print("##########This is {}th try##########".format(i))
+            print("##########This is {}th try##########".format(i+1))
             print(num_test)
             
             dataset_folder = f"{out_folder}/demo_{demo_index}_{num_test}.pickle"
@@ -1178,4 +1180,4 @@ if __name__ == '__main__':
             info_success,video = bake_visual_demonstration_test(dataset_folder=dataset_folder, demo_index=demo_index, task_name=task_name, object_name=object_name,
                                             init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]))
             if info_success:
-                imageio.mimsave("./temp/demos/aug/demo_{:04d}_{:04d}_x{:.2f}_y{:.2f}.mp4".format(demo_index,int(num_test),x,y), video, fps=120)
+                imageio.mimsave(f"./temp/demos/aug_{object_name}/demo_{demo_index:04d}_{num_test}_x{x:.2f}_y{y:.2f}.mp4", video, fps=120)
