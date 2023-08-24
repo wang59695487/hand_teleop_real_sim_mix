@@ -1147,15 +1147,15 @@ if __name__ == '__main__':
     #     for idx2 in range(len(augmenter_list)):
     #        x = augmenter_list[idx1]
     #        y = augmenter_list[idx2]
-    np.random.seed(0)
+    np.random.seed(20220824)
 
     for demo_index in range(1, 51):
         # if demo_index == 2:
         #     continue
 
         for i in range(400):
-            x = np.random.uniform(-0.12,0.12)
-            y = np.random.uniform(-0.12,0.12)
+            x = np.random.uniform(-0.11,0.11)
+            y = np.random.uniform(-0.11,0.11)
             
             if np.fabs(x) <= 0.01 and np.fabs(y) <= 0.01:
                 continue
