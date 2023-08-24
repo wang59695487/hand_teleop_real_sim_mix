@@ -68,6 +68,8 @@ class PickPlaceEnv(BaseSimulationEnv):
             self.manipulated_object.set_pose(self.init_pose)
         else:
             raise NotImplementedError
+        
+        self.generate_random_object_texture()
     
     def generate_random_object_pose(self, randomness_scale):
         # Small Random
@@ -89,6 +91,23 @@ class PickPlaceEnv(BaseSimulationEnv):
         orientation = transforms3d.euler.euler2quat(0, 0, euler)
         random_pose = sapien.Pose(position, orientation)
         return random_pose
+
+    def generate_random_object_texture(self):
+            random.seed(self.object_seed)
+            for link in self.plate.get_links():
+                
+                default_color = np.array([1, 0, 0, 1])
+
+                for visual in link.get_visual_bodies():
+                    for geom in visual.get_render_shapes():
+                        mat = geom.material
+                        mat.set_base_color(default_color)
+                        mat.set_specular(0.2)
+                        mat.set_roughness(0.7)
+                        mat.set_metallic(0.1)
+                        geom.set_material(mat)
+                  
+
 
     def generate_random_target_pose(self, randomness_scale):
         pos_x = self.np_random.uniform(low=-0.15, high=0.15) * randomness_scale
