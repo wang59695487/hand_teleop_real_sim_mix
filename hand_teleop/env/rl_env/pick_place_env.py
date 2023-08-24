@@ -189,9 +189,9 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
         object_xy = self.manipulated_object.pose.p[:-1]
         target_xy = self.target_pose.p[:-1]
         dist_xy = np.linalg.norm(object_xy - target_xy)
-        close_to_target = dist_xy <= 0.25
+        #close_to_target = dist_xy <= 0.25
 
-        return close_to_target
+        return dist_xy
     
     def _is_object_lifted(self):
         # check the x-y position of the object against the target
@@ -224,6 +224,7 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
     def get_info(self):
         return {"object_plate_contact": self._is_object_plate_contact(),
                 "is_object_lifted": self._is_object_lifted(),
+                "_is_close_to_target": self._is_close_to_target(),
                 "success": self._is_success()}
 
 

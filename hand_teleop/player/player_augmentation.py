@@ -939,7 +939,7 @@ def bake_visual_demonstration_test(dataset_folder, demo_index, init_pose_aug, ta
     env_params = meta_data["env_kwargs"]
     env_params['robot_name'] = robot_name
     env_params['use_visual_obs'] = use_visual_obs
-    env_params['use_gui'] = True
+    env_params['use_gui'] = False
     # env_params = dict(object_name=meta_data["env_kwargs"]['object_name'], object_scale=meta_data["env_kwargs"]['object_scale'], robot_name=robot_name, 
     #                  rotation_reward_weight=rotation_reward_weight, constant_object_state=False, randomness_scale=meta_data["env_kwargs"]['randomness_scale'], 
     #                  use_visual_obs=use_visual_obs, use_gui=False)
@@ -1128,7 +1128,8 @@ def bake_visual_demonstration_test(dataset_folder, demo_index, init_pose_aug, ta
         info_success = info["is_object_lifted"] and info["success"]
 
     rgb_pics = []
-    if info_success:
+    dist_xy = info['_is_close_to_target']
+    if info_success and dist_xy < 0.15:
         print("##############SUCCESS##############")
         for i in range(len(visual_baked["obs"])):
             rgb = visual_baked["obs"][i]["relocate_view-rgb"]
@@ -1141,12 +1142,21 @@ def bake_visual_demonstration_test(dataset_folder, demo_index, init_pose_aug, ta
 
 if __name__ == '__main__':
     #augmenter_list = [-0.06,0.06,-0.05,0.05,-0.04,0.04,-0.03,0.03]
-    augmenter_list = [-0.09,0.09,-0.07,0.07,-0.05,0.05]
-    for idx1 in range(len(augmenter_list)):
-        for idx2 in range(len(augmenter_list)):
-            x = augmenter_list[idx1]
-            y = augmenter_list[idx2]
-            if x == 0 and y == 0:
+    #augmenter_list = [-0.1,0.1,-0.09, 0.09,-0.08,0.08,-0.07,0.07,-0.06,0.06,-0.05,0.05, -0.04,0.04,-0.03,0.03 ,-0.02,0.02,-0.01,0.01]
+    # for idx1 in range(len(augmenter_list)):
+    #     for idx2 in range(len(augmenter_list)):
+    #        x = augmenter_list[idx1]
+    #        y = augmenter_list[idx2]
+    for demo_index in range(1, 51):
+        
+        if demo_index == 2:
+            continue
+
+        for i in range(300):
+            x = np.random.uniform(-0.12,0.12)
+            y = np.random.uniform(-0.12,0.12)
+            
+            if np.fabs(x) <= 0.01 and np.fabs(y) <= 0.01:
                 continue
             task_name = "pick_place"
             object_name = "mustard_bottle"
@@ -1156,15 +1166,13 @@ if __name__ == '__main__':
                 num_test = "0001"
             else:
                 pkl_files = os.listdir(out_folder)
-                last_num = sorted([int(x.replace(".pickle", "").split("/")[-1]) for x in pkl_files])[-1]
+                last_num = sorted([int(x.replace(".pickle", "").split("_")[-1]) for x in pkl_files])[-1]
                 num_test = str(last_num + 1).zfill(4)
             print(num_test)
 
-            dataset_folder = f"{out_folder}/{num_test}.pickle"
-            for demo_index in range(1, 51):
-                if demo_index == 2:
-                    continue
-                info_success,video = bake_visual_demonstration_test(dataset_folder=dataset_folder, demo_index=demo_index, task_name=task_name, object_name=object_name,
+            dataset_folder = f"{out_folder}/demo_{demo_index}_{num_test}.pickle"
+                
+            info_success,video = bake_visual_demonstration_test(dataset_folder=dataset_folder, demo_index=demo_index, task_name=task_name, object_name=object_name,
                                             init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]))
-                if info_success:
-                    imageio.mimsave("./temp/demos/player/demo_{:04d}_x{:02d}_y{:02d}.mp4".format(demo_index,idx1,idx2), video, fps=120)
+            if info_success:
+                imageio.mimsave("./temp/demos/aug/demo_{:04d}_x{:02f}_y{:02f}.mp4".format(demo_index,x,y), video, fps=120)
