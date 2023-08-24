@@ -1125,11 +1125,11 @@ def bake_visual_demonstration_test(dataset_folder, demo_index, init_pose_aug, ta
     augment_data = {'visual_baked': visual_baked, 'meta_data': meta_data}
 
     if task_name == 'pick_place':
-        info_success = info["is_object_lifted"] and info["success"]
+        info_success = info["is_object_lifted"] and info["success"] and info['_is_close_to_target'] <= 0.15
 
     rgb_pics = []
-    dist_xy = info['_is_close_to_target']
-    if info_success and dist_xy < 0.15:
+    dist_xy = 
+    if info_success:
         print("##############SUCCESS##############")
         for i in range(len(visual_baked["obs"])):
             rgb = visual_baked["obs"][i]["relocate_view-rgb"]
@@ -1138,7 +1138,8 @@ def bake_visual_demonstration_test(dataset_folder, demo_index, init_pose_aug, ta
         dataset_folder = Path(dataset_folder)
         with dataset_folder.open("wb") as f:
             pickle.dump(augment_data, f)
-    return info_success,rgb_pics
+
+    return info_success, rgb_pics
 
 if __name__ == '__main__':
     #augmenter_list = [-0.06,0.06,-0.05,0.05,-0.04,0.04,-0.03,0.03]
@@ -1148,9 +1149,6 @@ if __name__ == '__main__':
     #        x = augmenter_list[idx1]
     #        y = augmenter_list[idx2]
     for demo_index in range(1, 51):
-        
-        if demo_index == 2:
-            continue
 
         for i in range(300):
             x = np.random.uniform(-0.12,0.12)
@@ -1159,7 +1157,7 @@ if __name__ == '__main__':
             if np.fabs(x) <= 0.01 and np.fabs(y) <= 0.01:
                 continue
             task_name = "pick_place"
-            object_name = "mustard_bottle"
+            object_name = "sugar_box"
             out_folder = f"./sim/baked_augmentation/{task_name}_{object_name}_aug/"
             os.makedirs(out_folder, exist_ok=True)
             if len(os.listdir(out_folder)) == 0:
@@ -1175,4 +1173,4 @@ if __name__ == '__main__':
             info_success,video = bake_visual_demonstration_test(dataset_folder=dataset_folder, demo_index=demo_index, task_name=task_name, object_name=object_name,
                                             init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]))
             if info_success:
-                imageio.mimsave("./temp/demos/aug/demo_{:04d}_x{:02f}_y{:02f}.mp4".format(demo_index,x,y), video, fps=120)
+                imageio.mimsave("./temp/demos/aug/demo_{:04d}_{:04d}_x{:.2f}_y{:.2f}.mp4".format(demo_index,num_test,x,y), video, fps=120)
