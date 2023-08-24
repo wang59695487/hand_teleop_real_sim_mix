@@ -1128,7 +1128,6 @@ def bake_visual_demonstration_test(dataset_folder, demo_index, init_pose_aug, ta
         info_success = info["is_object_lifted"] and info["success"] and info['_is_close_to_target'] <= 0.15
 
     rgb_pics = []
-    dist_xy = 
     if info_success:
         print("##############SUCCESS##############")
         for i in range(len(visual_baked["obs"])):
