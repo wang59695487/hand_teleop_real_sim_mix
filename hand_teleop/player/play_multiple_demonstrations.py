@@ -188,6 +188,21 @@ def play_multiple_sim_real_visual(args):
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
             visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
+    
+    ################Using Augmented Sim Data################
+    demo_files = []
+    for file_name in os.listdir(args['sim_demo_aug_folder']):
+        if ".pickle" in file_name:
+            demo_files.append(os.path.join(args['sim_demo_aug_folder'], file_name))
+    print('Replaying the augmented sim demos and creating the dataset:')
+    print('---------------------')
+    for demo_id, file_name in enumerate(demo_files):
+        print(file_name)
+        with open(file_name, 'rb') as file:
+            demo = pickle.load(file)
+            visual_baked, meta_data = demo['visual_baked'], demo['meta_data']
+            init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
+            visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
             
     sim_demo_length = len(visual_training_set['obs']) - real_demo_length
      # since here we are using real data, we set sim_real_label = 1
@@ -609,8 +624,9 @@ if __name__ == '__main__':
         'real_demo_folder' : './real/raw_data/pick_place_mustard_bottle',
         #'real_demo_folder' : './real/raw_data/pick_place_tomato_soup_can',
         #'real_demo_folder' : './real/raw_data/pick_place_sugar_box',
-        # 'demo_folder' : './sim/raw_data/xarm/less_random/pick_place_tomato_soup_can',
-        # # 'robot_name' : 'allegro_hand_xarm6_wrist_mounted_face_down',
+
+        'sim_demo_aug_folder' : './sim/baked_augmentation/pick_place_mustard_bottle_aug',
+    
         "robot_name": "xarm6_allegro_modified_finger",
         'with_features' : True,
         'backbone_type' : args.backbone_type,
