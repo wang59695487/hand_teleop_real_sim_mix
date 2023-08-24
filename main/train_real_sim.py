@@ -102,7 +102,7 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
 
     if task_name == 'pick_place':
         env = PickPlaceRLEnv(**env_params)
-    elif task_name == 'dclaw'
+    elif task_name == 'dclaw':
         env = DClawRLEnv(**env_params)
     elif task_name == 'hammer':
         env = HammerRLEnv(**env_params)
@@ -268,13 +268,13 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
                 # next_obs, reward, done, _ = env.step(action)
                 # NOTE For new version, uncomment below!
                 next_obs, reward, done, info = env.step(real_action)
-                if task_name = 'pick_place':
+                if task_name == 'pick_place':
                     if epoch != "best":
-                        if task_name = 'pick_place':
+                        if task_name == 'pick_place':
                             info_success = info["is_object_lifted"] and info["success"]
                     else:
                         info_success = info["success"]
-                elif task_name = 'dclaw':
+                elif task_name == 'dclaw':
 
                     info_success = info["is_object_rotated"] and info["object_total_rotate_angle"]>=360*3
                 
@@ -293,12 +293,12 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
                 obs = deepcopy(next_obs)
             
             #If it did not lift the object, consider it as 0.25 success
-            if task_name = 'pick_place':
+            if task_name == 'pick_place':
                 if epoch != "best" and info["success"]:
                     avg_success += 0.25
                 is_lifted = info["is_object_lifted"]
                 video_path = os.path.join(log_dir, f"epoch_{epoch}_{eval_idx}_{success}_{is_lifted}.mp4")
-            elif task_name = 'dclaw':
+            elif task_name == 'dclaw':
                 is_rotated = info["is_object_rotated"]
                 video_path = os.path.join(log_dir, f"epoch_{epoch}_{eval_idx}_{success}_{is_rotated}.mp4")
             
@@ -468,8 +468,8 @@ if __name__ == '__main__':
     args = {
         'dataset_folder': args.demo_folder,
          # 8192 16384 32678 65536
-        'real_batch_size': 32678,
-        'sim_batch_size': 32678,
+        'real_batch_size': 55000,
+        'sim_batch_size': 65536,
         'val_ratio': 0.1,
         'bc_lr': 2e-5,
         'num_epochs': 2000,              
