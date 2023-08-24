@@ -1031,7 +1031,7 @@ def bake_demonstration_mano():
     if 'init_target_pos' in meta_data["env_kwargs"].keys():
         env_params['init_target_pos'] = meta_data["env_kwargs"]['init_target_pos']
     if task_name == 'pick_place':
-        env = PickPlaceRLEnv(**env_params)'
+        env = PickPlaceRLEnv(**env_params)
     elif task_name == 'dclaw':
         env = DClawRLEnv(**env_params)
     elif task_name == 'hammer':
@@ -1332,9 +1332,9 @@ def bake_visual_real_demonstration_test(retarget=False, index = 0):
     # Recorder
     shutil.rmtree('./temp/demos/player', ignore_errors=True)
     os.makedirs('./temp/demos/player')
-    #path = "./sim/raw_data/xarm/less_random/pick_place_mustard_bottle/mustard_bottle_0002.pickle"
+    path = "./sim/raw_data/xarm/less_random/pick_place_mustard_bottle/mustard_bottle_0002.pickle"
     #path = "./sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0001.pickle"
-    path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0001.pickle"
+    #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0001.pickle"
     
     all_data = np.load(path, allow_pickle=True)
     meta_data = all_data["meta_data"]
@@ -1472,8 +1472,8 @@ def bake_visual_real_demonstration_test(retarget=False, index = 0):
                                         has_joint_limits=True)
         baked_data = player.bake_demonstration(retargeting, method="tip_middle", indices=indices)
     elif using_real:
-        #record_root  = "./real/raw_data/pick_place_mustard_bottle"
-        record_root  = "./real/raw_data/pick_place_tomato_soup_can"
+        record_root  = "./real/raw_data/pick_place_mustard_bottle"
+        #record_root  = "./real/raw_data/pick_place_tomato_soup_can"
         #record_root  = "./real/raw_data/pick_place_sugar_box"
         record_path = Path(record_root) / f"{index:04}.pkl"
         #path = "./real/raw_data/pick_place_mustard_bottle/0001.pkl"
