@@ -1247,8 +1247,8 @@ def bake_visual_demonstration_test(retarget=False):
     os.makedirs('./temp/demos/player')
     #path = "./sim/raw_data/xarm/less_random/pick_place_mustard_bottle/mustard_bottle_0050.pickle"
     #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0011.pickle"
-    #path = "sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0050.pickle"
-    path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
+    path = "sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0050.pickle"
+    #path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
     all_data = np.load(path, allow_pickle=True)
     meta_data = all_data["meta_data"]
     task_name = meta_data["env_kwargs"]['task_name']
@@ -1367,6 +1367,8 @@ def bake_visual_demonstration_test(retarget=False):
         raise NotImplementedError
 
     # Retargeting
+    init_pose_aug=sapien.Pose([0, 0.1, 0], [1, 0, 0, 0])
+
     if retarget:
         link_names = ["palm_center", "link_15.0_tip", "link_3.0_tip", "link_7.0_tip", "link_11.0_tip", "link_14.0",
                     "link_2.0", "link_6.0", "link_10.0"]
@@ -1376,11 +1378,13 @@ def bake_visual_demonstration_test(retarget=False):
                                         has_joint_limits=True)
         baked_data = player.bake_demonstration(retargeting, method="tip_middle", indices=indices)
     else:
-        baked_data = player.bake_demonstration()
+        baked_data = player.bake_demonstration(init_pose_aug = init_pose_aug)
     visual_baked = dict(obs=[], action=[])
     env.reset()
     player.scene.unpack(player.get_sim_data(0))
     # env.randomize_object_rotation()
+    env.manipulated_object.set_pose(init_pose_aug*meta_data["env_kwargs"]['init_obj_pos'])
+    env.plate.set_pose(init_pose_aug*meta_data["env_kwargs"]['init_target_pos'])
     for _ in range(player.env.frame_skip):
         player.scene.step()
     if player.human_robot_hand is not None:
@@ -1437,7 +1441,7 @@ def bake_visual_demonstration_test(retarget=False):
                 visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                 _, _, _, info = env.step(target_qpos)
                 env.render()
-                print("delta_angle",env.object_total_rotate_angle)
+                #print("delta_angle",env.object_total_rotate_angle)
                 robot_qpos = np.concatenate([env.robot.get_qpos(),env.ee_link.get_pose().p,env.ee_link.get_pose().q])
                 #print("robot_qpos",robot_qpos)
                 

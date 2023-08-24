@@ -31,6 +31,10 @@ def play_multiple_sim_visual(args):
     # shutil.rmtree("./sim/baked_data/{}".format(dataset_folder),ignore_errors=True)
     if args['with_features']:
         assert args['backbone_type'] != None
+        model, preprocess = generate_feature_extraction_model(args["backbone_type"])
+        model = model.to("cuda:0")
+        model.eval()
+
     for file_name in os.listdir(args['sim_demo_folder']):
         if ".pickle" in file_name:
             demo_files.append(os.path.join(args['sim_demo_folder'], file_name))
@@ -39,10 +43,6 @@ def play_multiple_sim_visual(args):
     visual_training_set = dict(obs=[], next_obs=[], state=[], next_state=[], action=[], robot_qpos=[], sim_real_label=[])
     init_obj_poses = []
 
-    model, preprocess = generate_feature_extraction_model(args["backbone_type"])
-    model = model.to("cuda:0")
-    model.eval()
-
     for demo_id, file_name in enumerate(demo_files):
         print(file_name)
         with open(file_name, 'rb') as file:
@@ -50,7 +50,7 @@ def play_multiple_sim_visual(args):
             visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], retarget=args['retarget'])
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
-        visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model, preprocess)
+        visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
         # since here we are using sim data, we set sim_real_label = 0
         
     visual_training_set['sim_real_label'] = [0 for _ in range(len(visual_training_set['obs']))]
@@ -187,7 +187,7 @@ def play_multiple_sim_real_visual(args):
             visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], retarget=args['retarget'])
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
-            visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args)
+            visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
             
     sim_demo_length = len(visual_training_set['obs']) - real_demo_length
      # since here we are using real data, we set sim_real_label = 1
@@ -622,6 +622,7 @@ if __name__ == '__main__':
         'num_data_aug': 5,
         'image_augmenter': T.AugMix(),
         'delta_ee_pose_bound': args.delta_ee_pose_bound,
+        'out_folder': args.out_folder
     }
 
     if args['sim_demo_folder'] is not None and args['real_demo_folder'] is None:

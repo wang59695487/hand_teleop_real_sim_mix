@@ -56,9 +56,12 @@ class DClawEnv(BaseSimulationEnv):
             raise NotImplementedError
 
         loader = self.scene.create_urdf_loader()
+        loader.scale = self.object_scale
         loader.load_multiple_collisions_from_file = True
         builder = loader.load_file_as_articulation_builder(str(urdf_path))
         self.manipulated_object = builder.build(fix_root_link=True)
+        rotating_joint = self.manipulated_object.get_active_joints()[0]
+        rotating_joint.set_drive_property(0, 5)        
         self.generate_random_object_texture()
 
     def generate_random_object_pose(self, randomness_scale):
