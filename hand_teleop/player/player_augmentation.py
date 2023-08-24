@@ -1148,15 +1148,17 @@ if __name__ == '__main__':
     #        x = augmenter_list[idx1]
     #        y = augmenter_list[idx2]
     for demo_index in range(1, 51):
+        if demo_index == 2:
+            continue
 
-        for i in range(300):
-            x = np.random.uniform(-0.12,0.12)
-            y = np.random.uniform(-0.12,0.12)
+        for i in range(400):
+            x = np.random.uniform(-0.1,0.1)
+            y = np.random.uniform(-0.1,0.1)
             
             if np.fabs(x) <= 0.01 and np.fabs(y) <= 0.01:
                 continue
             task_name = "pick_place"
-            object_name = "sugar_box"
+            object_name = "mustard_bottle"
             out_folder = f"./sim/baked_augmentation/{task_name}_{object_name}_aug/"
             os.makedirs(out_folder, exist_ok=True)
             if len(os.listdir(out_folder)) == 0:
@@ -1172,4 +1174,4 @@ if __name__ == '__main__':
             info_success,video = bake_visual_demonstration_test(dataset_folder=dataset_folder, demo_index=demo_index, task_name=task_name, object_name=object_name,
                                             init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]))
             if info_success:
-                imageio.mimsave("./temp/demos/aug/demo_{:04d}_{:04d}_x{:.2f}_y{:.2f}.mp4".format(demo_index,num_test,x,y), video, fps=120)
+                imageio.mimsave("./temp/demos/aug/demo_{:04d}_{:04d}_x{:.2f}_y{:.2f}.mp4".format(demo_index,int(num_test),x,y), video, fps=120)
