@@ -1147,18 +1147,21 @@ if __name__ == '__main__':
     #     for idx2 in range(len(augmenter_list)):
     #        x = augmenter_list[idx1]
     #        y = augmenter_list[idx2]
+    np.random.seed(0)
+
     for demo_index in range(1, 51):
-        if demo_index == 2:
-            continue
+        # if demo_index == 2:
+        #     continue
 
         for i in range(400):
-            x = np.random.uniform(-0.1,0.1)
-            y = np.random.uniform(-0.1,0.1)
+            x = np.random.uniform(-0.12,0.12)
+            y = np.random.uniform(-0.12,0.12)
             
             if np.fabs(x) <= 0.01 and np.fabs(y) <= 0.01:
                 continue
+
             task_name = "pick_place"
-            object_name = "mustard_bottle"
+            object_name = "sugar_box"
             out_folder = f"./sim/baked_augmentation/{task_name}_{object_name}_aug/"
             os.makedirs(out_folder, exist_ok=True)
             if len(os.listdir(out_folder)) == 0:
@@ -1167,8 +1170,9 @@ if __name__ == '__main__':
                 pkl_files = os.listdir(out_folder)
                 last_num = sorted([int(x.replace(".pickle", "").split("_")[-1]) for x in pkl_files])[-1]
                 num_test = str(last_num + 1).zfill(4)
+            print("##########This is {}th try##########".format(i))
             print(num_test)
-
+            
             dataset_folder = f"{out_folder}/demo_{demo_index}_{num_test}.pickle"
                 
             info_success,video = bake_visual_demonstration_test(dataset_folder=dataset_folder, demo_index=demo_index, task_name=task_name, object_name=object_name,
