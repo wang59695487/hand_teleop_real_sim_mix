@@ -94,18 +94,17 @@ class PickPlaceEnv(BaseSimulationEnv):
 
     def generate_random_object_texture(self):
             random.seed(self.object_seed)
-            for link in self.plate.get_links():
-                
-                default_color = np.array([1, 0, 0, 1])
 
-                for visual in link.get_visual_bodies():
-                    for geom in visual.get_render_shapes():
-                        mat = geom.material
-                        mat.set_base_color(default_color)
-                        mat.set_specular(0.2)
-                        mat.set_roughness(0.7)
-                        mat.set_metallic(0.1)
-                        geom.set_material(mat)
+            default_color = np.array([1, 0, 0, 1])
+
+            for visual in self.plate.get_visual_bodies():
+                for geom in visual.get_render_shapes():
+                    mat = geom.material
+                    mat.set_base_color(default_color)
+                    mat.set_specular(0.2)
+                    mat.set_roughness(0.7)
+                    mat.set_metallic(0.1)
+                    geom.set_material(mat)
                   
 
 
