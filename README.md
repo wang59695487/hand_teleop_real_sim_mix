@@ -13,7 +13,9 @@ python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=vit_b_
 python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf
 python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=clip_RN50
 
-python hand_teleop/player/play_multiple_demonstrations_aug.py --backbone-type=regnet_y_3_2gf --delta-ee-pose-bound=0.0005 --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle_image_kinematic_aug
+python hand_teleop/player/play_multiple_demonstrations_aug.py --backbone-type=regnet_y_3_2gf --delta-ee-pose-bound=0.0005 --out-folder=real_sim_mix/baked_data/pick_place_sugar_box_image_kinematic_aug
+
+python hand_teleop/player/play_multiple_demonstrations_aug.py --backbone-type=regnet_y_3_2gf --delta-ee-pose-bound=0.0005 --out-folder=real_sim_mix/baked_data/pick_place_tomato_soup_can_image_kinematic_aug
 ```
 Currently, these following backbones are supported:
 - resnet50
