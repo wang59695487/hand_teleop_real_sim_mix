@@ -1001,7 +1001,7 @@ def bake_visual_demonstration_test_augmented(all_data, init_pose_aug, retarget=F
 
     
     real_camera_cfg = {
-        "relocate_view": dict( pose=lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(224, 224))
+        "relocate_view": dict( pose=lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(320, 240))
     }
     
     if task_name == 'table_door':

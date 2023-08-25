@@ -1333,7 +1333,7 @@ def bake_visual_demonstration_test(retarget=False):
 
     
     real_camera_cfg = {
-        "relocate_view": dict( pose=lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(224, 224))
+        "relocate_view": dict( pose=lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(320, 240))
     }
     
     if task_name == 'table_door':
@@ -1442,6 +1442,7 @@ def bake_visual_demonstration_test(retarget=False):
                 _, _, _, info = env.step(target_qpos)
                 env.render()
                 #print("delta_angle",env.object_total_rotate_angle)
+                print(env.get_observation()["relocate_view-rgb"].shape)
                 robot_qpos = np.concatenate([env.robot.get_qpos(),env.ee_link.get_pose().p,env.ee_link.get_pose().q])
                 #print("robot_qpos",robot_qpos)
                 
@@ -1457,7 +1458,7 @@ def bake_visual_demonstration_test(retarget=False):
         # #     env.render()
 
     for i in range(len(visual_baked["obs"])):
-        rgb = visual_baked["obs"][i]["relocate_view-rgb"]
+        rgb = visual_baked["obs"][i]["relocate_view-rgb"].cpu().detach().numpy()
         rgb_pic = (rgb * 255).astype(np.uint8)
         imageio.imsave("./temp/demos/player/relocate-rgb_{}.png".format(i), rgb_pic)
 
@@ -1564,7 +1565,7 @@ def bake_visual_real_demonstration_test(retarget=False):
     # }
     
     real_camera_cfg = {
-        "relocate_view": dict( pose= lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(224, 224))
+        "relocate_view": dict( pose= lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(320, 240))
     }
 
     if task_name == 'table_door':
