@@ -103,7 +103,7 @@ def save_data(meta_data, visual_training_set, dataset_folder, args, demo_id, spl
         print("Shape of observations: {}".format(visual_training_set['obs'][0].shape))
         print("Action dimension: {}".format(len(visual_training_set['action'][0])))
         print("Robot_qpos dimension: {}".format(len(visual_training_set['robot_qpos'][0])))
-        dataset_path = "{}/{}_dataset_demo_{}_aug_{}_split_{}.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""), demo_id+1, args['kinematic_aug'],split_id)
+        dataset_path = "{}/{}_demo_{}_aug_{}_split_{}_dataset.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""), demo_id+1, args['kinematic_aug'],split_id)
 
         with open(dataset_path,'wb') as file:
             pickle.dump(visual_training_set, file)
