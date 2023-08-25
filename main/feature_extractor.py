@@ -233,7 +233,7 @@ def generate_feature_extraction_model(backbone_type):
   if "clip" not in backbone_type:
 
     preprocess = transforms.Compose([
-      #transforms.Resize((224, 224)),  # resize to 224*224
+      transforms.Resize((320, 240)),  # resize to 224*224
       transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     ])
 
@@ -314,7 +314,8 @@ def generate_features(visual_baked, model, preprocess, backbone_type="ResNet34",
     features = []
     
     for img in tqdm(raw_imgs):
-      img = torch.from_numpy(np.moveaxis(img,-1,0)[None, ...])
+      # img = torch.from_numpy(np.moveaxis(img,-1,0)[None, ...])
+      img = img.permute((2,0,1))[None, ...]
       if i != 0:
         img = augmentation_img(img,augmenter)
       img = preprocess(img)

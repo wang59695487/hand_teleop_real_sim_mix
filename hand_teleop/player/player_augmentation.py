@@ -908,14 +908,14 @@ def average_angle_handqpos(hand_qpos):
         delta_angles.append(delta_angle)
     return np.mean(delta_angles)
 
-def bake_visual_demonstration_test(dataset_folder, demo_index, init_pose_aug, task_name, object_name, retarget=False):
+def bake_visual_demonstration_test_augmented(all_data, init_pose_aug, retarget=False):
     from pathlib import Path
     # Recorder
-    path = f"./sim/raw_data/xarm/less_random/{task_name}_{object_name}/{object_name}_{demo_index:04d}.pickle"
+    #path = f"./sim/raw_data/xarm/less_random/{task_name}_{object_name}/{object_name}_{demo_index:04d}.pickle"
     #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0011.pickle"
     #path = "sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0050.pickle"
     #path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
-    all_data = np.load(path, allow_pickle=True)
+    #all_data = np.load(path, allow_pickle=True)
     meta_data = all_data["meta_data"]
     task_name = meta_data["env_kwargs"]['task_name']
     meta_data["env_kwargs"].pop('task_name')
@@ -1114,31 +1114,23 @@ def bake_visual_demonstration_test(dataset_folder, demo_index, init_pose_aug, ta
                 _, _, _, info = env.step(target_qpos)
                 #env.render()
 
-        # # NOTE: Old Version
-        # visual_baked["obs"].append(env.get_observation())
-        # visual_baked["action"].append(action)
-        # env.step(action)
-
-        # env.render()
-        # # for _ in range(3):
-        # #     env.render()
-    augment_data = {'visual_baked': visual_baked, 'meta_data': meta_data}
+    # augment_data = {'visual_baked': visual_baked, 'meta_data': meta_data}
 
     if task_name == 'pick_place':
         info_success = info["is_object_lifted"] and info["success"] and info['_is_close_to_target'] <= 0.15
 
-    rgb_pics = []
-    if info_success:
-        print("##############SUCCESS##############")
-        for i in range(len(visual_baked["obs"])):
-            rgb = visual_baked["obs"][i]["relocate_view-rgb"]
-            rgb_pic = (rgb * 255).astype(np.uint8)
-            rgb_pics.append(rgb_pic)
-        dataset_folder = Path(dataset_folder)
-        with dataset_folder.open("wb") as f:
-            pickle.dump(augment_data, f)
+    # rgb_pics = []
+    # if info_success:
+    #     print("##############SUCCESS##############")
+    #     for i in range(len(visual_baked["obs"])):
+    #         rgb = visual_baked["obs"][i]["relocate_view-rgb"]
+    #         rgb_pic = (rgb * 255).astype(np.uint8)
+    #         rgb_pics.append(rgb_pic)
+    #     dataset_folder = Path(dataset_folder)
+    #     with dataset_folder.open("wb") as f:
+    #         pickle.dump(augment_data, f)
 
-    return info_success, rgb_pics
+    return info_success, visual_baked, meta_data
 
 if __name__ == '__main__':
     #augmenter_list = [-0.06,0.06,-0.05,0.05,-0.04,0.04,-0.03,0.03]
@@ -1177,7 +1169,7 @@ if __name__ == '__main__':
             
             dataset_folder = f"{out_folder}/demo_{demo_index}_{num_test}.pickle"
                 
-            info_success,video = bake_visual_demonstration_test(dataset_folder=dataset_folder, demo_index=demo_index, task_name=task_name, object_name=object_name,
+            info_success, augment_data = bake_visual_demonstration_test_augmented(dataset_folder=dataset_folder, demo_index=demo_index, task_name=task_name, object_name=object_name,
                                             init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]))
             if info_success:
                 imageio.mimsave(f"./temp/demos/aug_{object_name}/demo_{demo_index:04d}_{num_test}_x{x:.2f}_y{y:.2f}.mp4", video, fps=120)

@@ -13,7 +13,7 @@ from hand_teleop.kinematics.kinematics_helper import PartialKinematicModel
 from hand_teleop.utils.common_robot_utils import load_robot, generate_arm_robot_hand_info, \
     generate_free_robot_hand_info, FreeRobotInfo, ArmRobotInfo
 
-VISUAL_OBS_RETURN_TORCH = False
+VISUAL_OBS_RETURN_TORCH = True
 MAX_DEPTH_RANGE = 2.5
 gl2sapien = sapien.Pose(q=np.array([0.5, 0.5, -0.5, -0.5]))
 
@@ -371,15 +371,21 @@ class BaseRLEnv(BaseSimulationEnv, gym.Env):
                     import torch
                     output_array = torch.from_dlpack(dl_tensor).cpu().numpy()
                 else:
-                    output_array = np.zeros(shape, dtype=np.float32)
-                    sapien.dlpack.dl_to_numpy_cuda_async_unchecked(dl_tensor, output_array)
-                    sapien.dlpack.dl_cuda_sync()
+                    if VISUAL_OBS_RETURN_TORCH:
+                        import torch
+                        output_array = torch.from_dlpack(dl_tensor)
+                    else:
+                        output_array = np.zeros(shape, dtype=np.float32)
+                        sapien.dlpack.dl_to_numpy_cuda_async_unchecked(dl_tensor, output_array)
+                        sapien.dlpack.dl_cuda_sync()
                 if modality == "rgb":
                     obs = output_array[..., :3]
                 elif modality == "depth":
                     obs = -output_array[..., 2:3]
                     obs[obs[..., 0] > MAX_DEPTH_RANGE] = 0  # Set depth out of range to be 0
                 elif modality == "point_cloud":
+                    if VISUAL_OBS_RETURN_TORCH:
+                        raise NotImplementedError
                     obs = np.reshape(output_array[..., :3], (-1, 3))
                     camera_pose = self.get_camera_to_robot_pose(name)
                     obs = camera_cfg["point_cloud"]["process_fn"](obs, camera_pose,
@@ -396,7 +402,7 @@ class BaseRLEnv(BaseSimulationEnv, gym.Env):
 
         if len(self.imaginations) > 0:
             obs_dict.update(self.imaginations)
-
+        
         return obs_dict
 
     def get_camera_to_robot_pose(self, camera_name):

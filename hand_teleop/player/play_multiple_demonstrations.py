@@ -5,6 +5,7 @@ import imageio
 from argparse import ArgumentParser
 
 import torch
+import torchvision
 import torchvision.transforms as T
 
 from hand_teleop.env.rl_env.laptop_env import LaptopRLEnv
@@ -15,6 +16,7 @@ from hand_teleop.env.rl_env.hammer_env import HammerRLEnv
 from hand_teleop.env.rl_env.dclaw_env import DClawRLEnv
 
 from hand_teleop.player.player import *
+from hand_teleop.player.player_augmentation import *
 from hand_teleop.player.randomization_utils import *
 from hand_teleop.real_world import lab
 
@@ -190,19 +192,32 @@ def play_multiple_sim_real_visual(args):
             visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
     
     ################Using Augmented Sim Data################
-    demo_files = []
-    for file_name in os.listdir(args['sim_demo_aug_folder']):
-        if ".pickle" in file_name:
-            demo_files.append(os.path.join(args['sim_demo_aug_folder'], file_name))
-    print('Replaying the augmented sim demos and creating the dataset:')
-    print('---------------------')
-    for demo_id, file_name in enumerate(demo_files):
-        print(file_name)
-        with open(file_name, 'rb') as file:
-            demo = pickle.load(file)
-            visual_baked, meta_data = demo['visual_baked'], demo['meta_data']
-            init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
-            visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
+    if args['kinematic_aug'] > 0:
+        print('Augmenting sim demos and creating the dataset:')
+        print('---------------------')
+        np.random.seed(20220824)
+        for demo_id, file_name in enumerate(demo_files):
+            print(file_name)
+            num_test = 0
+            with open(file_name, 'rb') as file:
+                demo = pickle.load(file)
+                for i in tqdm(range(args['kinematic_aug'])):
+                    x = np.random.uniform(-0.11,0.11)
+                    y = np.random.uniform(-0.11,0.11)
+                    
+                    if np.fabs(x) <= 0.01 and np.fabs(y) <= 0.01:
+                        continue
+
+                    info_success, visual_baked, meta_data = bake_visual_demonstration_test_augmented(demo=demo, init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]), retarget=args['retarget'])
+
+                    if info_success:
+                        print("##############SUCCESS##############")
+                        num_test += 1
+                        print("##########This is {}th try and {}th success##########".format(i+1,num_test))
+                        init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
+                        # visual_baked_demos.append(visual_baked)
+                        visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
+
             
     sim_demo_length = len(visual_training_set['obs']) - real_demo_length
      # since here we are using real data, we set sim_real_label = 1
@@ -338,7 +353,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
     # }
 
     real_camera_cfg = {
-        "relocate_view": dict( pose= lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(224, 224))
+        "relocate_view": dict( pose= lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(320, 240))
     }
 
     if task_name == 'table_door':
@@ -351,7 +366,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
     # Specify modality
     empty_info = {}  # level empty dict for now, reserved for future
-    camera_info = {"relocate_view": {"rgb": empty_info, "segmentation": empty_info}}
+    camera_info = {"relocate_view": {"rgb": empty_info}}
     env.setup_visual_obs_config(camera_info)
 
     # Player
@@ -412,7 +427,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
     else:
         ee_pose = baked_data["ee_pose"][0]
         hand_qpos_prev = baked_data["action"][0][env.arm_dof:]
-    
+
     if using_real_data:
         for idx in range(len(baked_data)):
             
@@ -451,9 +466,9 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     arm_qpos = arm_qvel + env.robot.get_qpos()[:env.arm_dof]
 
                     observation = env.get_observation()
-                    rgb_pic = imageio.imread(os.path.join('.'+real_images, "frame%04i.png" % idx), pilmode="RGB")
-                    rgb_pic = rgb_pic.astype(np.uint8)
-                    rgb_pic = (rgb_pic / 255.0).astype(np.float32)
+                    rgb_pic = torchvision.io.read_image(path = os.path.join('.'+real_images, "frame%04i.png" % idx), mode=torchvision.io.ImageReadMode.RGB)
+                    rgb_pic = rgb_pic.permute(1,2,0)
+                    rgb_pic = (rgb_pic / 255.0).type(torch.float32)
                     observation["relocate_view-rgb"] = rgb_pic
 
                     visual_baked["obs"].append(observation)
@@ -502,9 +517,10 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     target_qpos = np.concatenate([arm_qpos, hand_qpos])
 
                     observation = env.get_observation()
+                    #print("observation: ", observation.keys())
                     # rgb = observation["relocate_view-rgb"]
                     # rgb_pic = (rgb * 255).astype(np.uint8)
-                    # observation["relocate_view-rgb"] = rgb_pic
+                    # print("rgb_pic: ", observation["relocate_view-rgb"].shape)
 
                     visual_baked["obs"].append(observation)
                     visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
@@ -620,12 +636,11 @@ if __name__ == '__main__':
         'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle',
         #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_tomato_soup_can',
         #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_sugar_box',
+
         #'real_demo_folder': None,
         'real_demo_folder' : './real/raw_data/pick_place_mustard_bottle',
         #'real_demo_folder' : './real/raw_data/pick_place_tomato_soup_can',
         #'real_demo_folder' : './real/raw_data/pick_place_sugar_box',
-
-        'sim_demo_aug_folder' : './sim/baked_augmentation/pick_place_mustard_bottle_aug',
     
         "robot_name": "xarm6_allegro_modified_finger",
         'with_features' : True,
@@ -637,6 +652,7 @@ if __name__ == '__main__':
         'randomization_prob': 0.2,
         'num_data_aug': 5,
         'image_augmenter': T.AugMix(),
+        'kinematic_aug': 400,
         'delta_ee_pose_bound': args.delta_ee_pose_bound,
         'out_folder': args.out_folder
     }
