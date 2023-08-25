@@ -76,7 +76,7 @@ def play_multiple_sim_aug(args):
                 init_target_poses.append(meta_data['env_kwargs']['init_target_pos'])
                 visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
                 
-                if num_test%50 == 0:
+                if num_test%10 == 0:
                     split_id += 1
                     meta_data['init_obj_poses'] = init_obj_poses
                     meta_data['init_target_poses'] = init_target_poses
@@ -109,7 +109,7 @@ def save_data(meta_data, visual_training_set, dataset_folder, args, demo_id, spl
             pickle.dump(visual_training_set, file)
             
     print('dataset is saved in the folder: ./real_sim_mix/baked_data/{}'.format(dataset_folder))
-    meta_data_path = "{}/{}_demo_{}_aug_{}_split_{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""), demo_id+1, args['kinematic_aug'],split_id
+    meta_data_path = "{}/{}_demo_{}_aug_{}_split_{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""), demo_id+1, args['kinematic_aug'],split_id)
     with open(meta_data_path,'wb') as file:
         pickle.dump(meta_data, file)
 
