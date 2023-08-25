@@ -40,6 +40,7 @@ def play_multiple_sim_aug(args):
 
     visual_training_set = dict(obs=[], next_obs=[], state=[], next_state=[], action=[], robot_qpos=[], sim_real_label=[])
     init_obj_poses = []
+    init_target_poses = []
     demo_files = []
     for file_name in os.listdir(args['sim_demo_folder']):
         if ".pickle" in file_name:
@@ -47,10 +48,11 @@ def play_multiple_sim_aug(args):
     print('Augmenting sim demos and creating the dataset:')
     print('---------------------')
     np.random.seed(20220824)
+    
     for demo_id, file_name in enumerate(demo_files):
         print(file_name)
         num_test = 0
-
+        split_id = 0
         with open(file_name, 'rb') as file:
             demo = pickle.load(file)
         
@@ -71,34 +73,45 @@ def play_multiple_sim_aug(args):
                 num_test += 1
                 print("##########This is {}th try and {}th success##########".format(i+1,num_test))
                 init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
-                # visual_baked_demos.append(visual_baked)
+                init_target_poses.append(meta_data['env_kwargs']['init_target_pos'])
                 visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
+                
+                if num_test%50 == 0:
+                    split_id += 1
+                    meta_data['init_obj_poses'] = init_obj_poses
+                    meta_data['init_target_poses'] = init_target_poses
+                    save_data(meta_data, visual_training_set, dataset_folder, args, demo_id, split_id)
+                    visual_training_set = dict(obs=[], next_obs=[], state=[], next_state=[], action=[], robot_qpos=[], sim_real_label=[])
+                    init_obj_poses = []
+                    init_target_poses = []
 
             if num_test >= args['kinematic_aug']:
                 break
 
-        sim_demo_length = len(visual_training_set['obs'])
-        # since here we are using real data, we set sim_real_label = 1
-        visual_training_set['sim_real_label'] = [0 for _ in range(sim_demo_length)]
 
-        if visual_training_set['obs'] and visual_training_set['action'] and visual_training_set['robot_qpos']:
-            assert len(visual_training_set['obs']) == len(visual_training_set['action'])
-            print(f"Augment sim dataset for demo_{demo_id} ready:")
-            print('----------------------')
-            print("Number of datapoints: {}".format(len(visual_training_set['obs'])))
-            print("Shape of observations: {}".format(visual_training_set['obs'][0].shape))
-            print("Action dimension: {}".format(len(visual_training_set['action'][0])))
-            print("Robot_qpos dimension: {}".format(len(visual_training_set['robot_qpos'][0])))
-            dataset_path = "{}/{}_dataset_demo_{}_aug_{}.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""), demo_id, args['kinematic_aug'])
+def save_data(meta_data, visual_training_set, dataset_folder, args, demo_id, split_id):
 
-            with open(dataset_path,'wb') as file:
-                pickle.dump(visual_training_set, file)
-                
-        print('dataset is saved in the folder: ./real_sim_mix/baked_data/{}'.format(dataset_folder))
-        meta_data_path = "{}/{}_demo_{}_aug_{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""), demo_id, args['kinematic_aug'])
-        meta_data['init_obj_poses'] = init_obj_poses
-        with open(meta_data_path,'wb') as file:
-            pickle.dump(meta_data, file)
+    sim_demo_length = len(visual_training_set['obs'])
+    # since here we are using real data, we set sim_real_label = 1
+    visual_training_set['sim_real_label'] = [0 for _ in range(sim_demo_length)]
+
+    if visual_training_set['obs'] and visual_training_set['action'] and visual_training_set['robot_qpos']:
+        assert len(visual_training_set['obs']) == len(visual_training_set['action'])
+        print(f"Augment sim dataset for demo_{demo_id} ready:")
+        print('----------------------')
+        print("Number of datapoints: {}".format(len(visual_training_set['obs'])))
+        print("Shape of observations: {}".format(visual_training_set['obs'][0].shape))
+        print("Action dimension: {}".format(len(visual_training_set['action'][0])))
+        print("Robot_qpos dimension: {}".format(len(visual_training_set['robot_qpos'][0])))
+        dataset_path = "{}/{}_dataset_demo_{}_aug_{}_split_{}.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""), demo_id+1, args['kinematic_aug'],split_id)
+
+        with open(dataset_path,'wb') as file:
+            pickle.dump(visual_training_set, file)
+            
+    print('dataset is saved in the folder: ./real_sim_mix/baked_data/{}'.format(dataset_folder))
+    meta_data_path = "{}/{}_demo_{}_aug_{}_split_{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""), demo_id+1, args['kinematic_aug'],split_id
+    with open(meta_data_path,'wb') as file:
+        pickle.dump(meta_data, file)
 
 
 def parse_args():
@@ -121,8 +134,8 @@ if __name__ == '__main__':
     args = {
         #'demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle_0.73',
         #'sim_demo_folder': None,
-        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle',
-        'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_tomato_soup_can',
+        'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle',
+        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_tomato_soup_can',
         #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_sugar_box',
 
         #'real_demo_folder': None,
