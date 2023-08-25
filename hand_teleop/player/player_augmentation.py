@@ -1161,9 +1161,9 @@ if __name__ == '__main__':
                 continue
 
             task_name = "pick_place"
-            object_name = "tomato_soup_can"
             #object_name = "sugar_box"
-            #object_name = "mustard_bottle"
+            #object_name = "tomato_soup_can"
+            object_name = "mustard_bottle"
             out_folder = f"./sim/baked_augmentation/{task_name}_{object_name}_aug/"
             os.makedirs(out_folder, exist_ok=True)
             if len(os.listdir(out_folder)) == 0:
