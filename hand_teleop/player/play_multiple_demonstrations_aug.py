@@ -54,8 +54,6 @@ def play_multiple_sim_aug(args):
         with open(file_name, 'rb') as file:
             demo = pickle.load(file)
         
-        
-
         for i in tqdm(range(300)):
 
             x = np.random.uniform(-0.11,0.11)
@@ -76,7 +74,7 @@ def play_multiple_sim_aug(args):
                 # visual_baked_demos.append(visual_baked)
                 visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
 
-            if num_test >= args['num_data_aug']:
+            if num_test >= args['kinematic_aug']:
                 break
 
         sim_demo_length = len(visual_training_set['obs'])
@@ -91,13 +89,13 @@ def play_multiple_sim_aug(args):
             print("Shape of observations: {}".format(visual_training_set['obs'][0].shape))
             print("Action dimension: {}".format(len(visual_training_set['action'][0])))
             print("Robot_qpos dimension: {}".format(len(visual_training_set['robot_qpos'][0])))
-            dataset_path = "{}/{}_dataset_demo_{}_aug_{}.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""),demo_id, args['num_data_aug'])
+            dataset_path = "{}/{}_dataset_demo_{}_aug_{}.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""), demo_id, args['kinematic_aug'])
 
             with open(dataset_path,'wb') as file:
                 pickle.dump(visual_training_set, file)
                 
         print('dataset is saved in the folder: ./real_sim_mix/baked_data/{}'.format(dataset_folder))
-        meta_data_path = "{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
+        meta_data_path = "{}/{}_demo_{}_aug_{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""), demo_id, args['kinematic_aug'])
         meta_data['init_obj_poses'] = init_obj_poses
         with open(meta_data_path,'wb') as file:
             pickle.dump(meta_data, file)
@@ -123,12 +121,12 @@ if __name__ == '__main__':
     args = {
         #'demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle_0.73',
         #'sim_demo_folder': None,
-        'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle',
-        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_tomato_soup_can',
+        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle',
+        'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_tomato_soup_can',
         #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_sugar_box',
 
         #'real_demo_folder': None,
-        'real_demo_folder' : './real/raw_data/pick_place_mustard_bottle',
+        #'real_demo_folder' : './real/raw_data/pick_place_mustard_bottle',
         #'real_demo_folder' : './real/raw_data/pick_place_tomato_soup_can',
         #'real_demo_folder' : './real/raw_data/pick_place_sugar_box',
     
@@ -142,7 +140,7 @@ if __name__ == '__main__':
         'randomization_prob': 0.2,
         'num_data_aug': 3,
         'image_augmenter': T.AugMix(),
-        'kinematic_aug': 400,
+        'kinematic_aug': 100,
         'delta_ee_pose_bound': args.delta_ee_pose_bound,
         'out_folder': args.out_folder
     }
