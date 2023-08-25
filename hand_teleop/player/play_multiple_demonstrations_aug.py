@@ -56,7 +56,7 @@ def play_multiple_sim_aug(args):
         
         
 
-        for i in tqdm(range(args['kinematic_aug'])):
+        for i in tqdm(range(300)):
 
             x = np.random.uniform(-0.11,0.11)
             y = np.random.uniform(-0.11,0.11)
@@ -75,7 +75,10 @@ def play_multiple_sim_aug(args):
                 init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
                 # visual_baked_demos.append(visual_baked)
                 visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
-        
+
+            if num_test >= args['num_data_aug']:
+                break
+
         sim_demo_length = len(visual_training_set['obs'])
         # since here we are using real data, we set sim_real_label = 1
         visual_training_set['sim_real_label'] = [0 for _ in range(sim_demo_length)]
@@ -88,7 +91,7 @@ def play_multiple_sim_aug(args):
             print("Shape of observations: {}".format(visual_training_set['obs'][0].shape))
             print("Action dimension: {}".format(len(visual_training_set['action'][0])))
             print("Robot_qpos dimension: {}".format(len(visual_training_set['robot_qpos'][0])))
-            dataset_path = "{}/{}_dataset_demo_{}_aug.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""),demo_id)
+            dataset_path = "{}/{}_dataset_demo_{}_aug_{}.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""),demo_id, args['num_data_aug'])
 
             with open(dataset_path,'wb') as file:
                 pickle.dump(visual_training_set, file)
