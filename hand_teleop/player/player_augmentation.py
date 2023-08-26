@@ -453,9 +453,10 @@ def player_augmenting(args):
     np.random.seed(args['seed'])
 
     demo_files = []
-    for file_name in os.listdir(args['sim_demo_folder']):
+    sim_data_path = f"{args['sim_demo_folder']}/{args['task_name']}_{args['object_name']}/"
+    for file_name in os.listdir(sim_data_path ):
         if ".pickle" in file_name:
-            demo_files.append(os.path.join(args['sim_demo_folder'], file_name))
+            demo_files.append(os.path.join(sim_data_path, file_name))
     print('Augmenting sim demos and creating the dataset:')
     print('---------------------')
 
@@ -510,9 +511,11 @@ if __name__ == '__main__':
      
     args = {
         'seed': 20230825,
-        'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_tomato_soup_can',
+        'sim_demo_folder' : './sim/raw_data/xarm/less_random',
         'task_name': "pick_place",
-        'object_name': "mustard_bottle",
+        #'object_name': "mustard_bottle",
+        #'object_name': "tomato_soup_can",
+        'object_name': "sugar_box",
         'kinematic_aug': 100,
         'retarget': False
     }
