@@ -1333,7 +1333,7 @@ def bake_visual_demonstration_test(retarget=False):
 
     
     real_camera_cfg = {
-        "relocate_view": dict( pose=lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(320, 240))
+        "relocate_view": dict( pose=lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(224, 224))
     }
     
     if task_name == 'table_door':
@@ -1471,7 +1471,8 @@ def bake_visual_real_demonstration_test(retarget=False):
     os.makedirs('./temp/demos/player')
     #path = "./sim/raw_data/xarm/less_random/pick_place_mustard_bottle/mustard_bottle_0004.pickle"
     #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0001.pickle"
-    path = "sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0001.pickle"
+    #path = "sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0001.pickle"
+    path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
     
     all_data = np.load(path, allow_pickle=True)
     meta_data = all_data["meta_data"]
@@ -1565,7 +1566,7 @@ def bake_visual_real_demonstration_test(retarget=False):
     # }
     
     real_camera_cfg = {
-        "relocate_view": dict( pose= lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(320, 240))
+        "relocate_view": dict( pose= lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(224, 224))
     }
 
     if task_name == 'table_door':
@@ -1611,7 +1612,8 @@ def bake_visual_real_demonstration_test(retarget=False):
     elif using_real:
         #path = "./real/raw_data/pick_place_mustard_bottle/0000.pkl"
         #path = "./real/raw_data/pick_place_tomato_soup_can/0000.pkl"
-        path = "./real/raw_data/pick_place_sugar_box/0000.pkl"
+        #path = "./real/raw_data/pick_place_sugar_box/0000.pkl"
+        path = "./real/raw_data/dclaw/0000.pkl"
         baked_data = np.load(path, allow_pickle=True)
 
     visual_baked = dict(obs=[], action=[])
@@ -1643,11 +1645,11 @@ def bake_visual_real_demonstration_test(retarget=False):
     # 0016: obj_position = np.array([-0.02, 0.25, 0.1])
     # 0017: obj_position = np.array([-0.02, 0.28, 0.1])
     #y: 0.32 - 0.26
-    obj_position = np.array([0.07, 0.25, 0.1])
-    euler = np.deg2rad(30)
-    orientation = transforms3d.euler.euler2quat(0, 0, euler)
-    obj_pose = sapien.Pose(obj_position, orientation)
-    env.manipulated_object.set_pose(obj_pose)
+    # obj_position = np.array([0.07, 0.25, 0.1])
+    # euler = np.deg2rad(30)
+    # orientation = transforms3d.euler.euler2quat(0, 0, euler)
+    # obj_pose = sapien.Pose(obj_position, orientation)
+    # env.manipulated_object.set_pose(obj_pose)
 
     #robot_base_pose = np.array([0, -0.7, 0, 0.707, 0, 0, 0.707])
     env.robot.set_qpos(baked_data[0]["teleop_cmd"])
@@ -1722,10 +1724,10 @@ def bake_visual_real_demonstration_test(retarget=False):
             # # for _ in range(3):
             # #     env.render()
 
-    for i in range(len(visual_baked["obs"])):
-        rgb = visual_baked["obs"][i]["relocate_view-rgb"]
-        rgb_pic = (rgb * 255).astype(np.uint8)
-        imageio.imsave("./temp/demos/player/relocate-rgb_{}.png".format(i), rgb_pic)
+    # for i in range(len(visual_baked["obs"])):
+    #     rgb = visual_baked["obs"][i]["relocate_view-rgb"]
+    #     rgb_pic = (rgb * 255).astype(np.uint8)
+    #     imageio.imsave("./temp/demos/player/relocate-rgb_{}.png".format(i), rgb_pic)
     
     
 
@@ -1735,5 +1737,5 @@ if __name__ == '__main__':
     # bake_demonstration_svh_test()
     # bake_demonstration_ar10_test()
     # bake_demonstration_mano()
-    bake_visual_demonstration_test()
-    # bake_visual_real_demonstration_test()
+    #bake_visual_demonstration_test()
+    bake_visual_real_demonstration_test()

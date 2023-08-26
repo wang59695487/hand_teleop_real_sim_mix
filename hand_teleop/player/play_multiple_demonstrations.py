@@ -165,7 +165,7 @@ def play_multiple_sim_real_visual(args):
         with open(file_name, 'rb') as file:
             real_demo = pickle.load(file)
             task_name = args['real_demo_folder'].split('/')[-1]
-            path = "./sim/raw_data/xarm/less_random/{}/{}_{}_0004.pickle".format(task_name,task_name.split('_')[-2],task_name.split('_')[-1])
+            path = "./sim/raw_data/xarm/less_random/{}/{}_0004.pickle".format(args['task_name'],args['object_name'])
             demo = np.load(path, allow_pickle=True)
             visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, real_demo=real_demo, real_images=image_file, robot_name=args['robot_name'], 
                                                                     domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], 
@@ -216,63 +216,6 @@ def play_multiple_sim_real_visual(args):
     with open(meta_data_path,'wb') as file:
         pickle.dump(meta_data, file)
         
-def play_multiple_sim_aug(args):
-    ################Using Augmented Sim Data################
-    dataset_folder = args["out_folder"]
-    visual_training_set = dict(obs=[], next_obs=[], state=[], next_state=[], action=[], robot_qpos=[], sim_real_label=[])
-    init_obj_poses = []
-    demo_files = []
-    for file_name in os.listdir(args['sim_demo_folder']):
-        if ".pickle" in file_name:
-            demo_files.append(os.path.join(args['sim_demo_folder'], file_name))
-    print('Augmenting sim demos and creating the dataset:')
-    print('---------------------')
-    np.random.seed(20220824)
-    for demo_id, file_name in enumerate(demo_files):
-        print(file_name)
-        num_test = 0
-        with open(file_name, 'rb') as file:
-            demo = pickle.load(file)
-            for i in tqdm(range(args['kinematic_aug'])):
-                x = np.random.uniform(-0.11,0.11)
-                y = np.random.uniform(-0.11,0.11)
-                
-                if np.fabs(x) <= 0.01 and np.fabs(y) <= 0.01:
-                    continue
-
-                info_success, visual_baked, meta_data = bake_visual_demonstration_test_augmented(all_data=demo, init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]), retarget=args['retarget'])
-
-                if info_success:
-                    print("##############SUCCESS##############")
-                    num_test += 1
-                    print("##########This is {}th try and {}th success##########".format(i+1,num_test))
-                    init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
-                    # visual_baked_demos.append(visual_baked)
-                    visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
-        
-        sim_demo_length = len(visual_training_set['obs'])
-        # since here we are using real data, we set sim_real_label = 1
-        visual_training_set['sim_real_label'] = [0 for _ in range(sim_demo_length)]
-
-        if visual_training_set['obs'] and visual_training_set['action'] and visual_training_set['robot_qpos']:
-            assert len(visual_training_set['obs']) == len(visual_training_set['action'])
-            print(f"Augment sim dataset for demo_{demo_id} ready:")
-            print('----------------------')
-            print("Number of datapoints: {}".format(len(visual_training_set['obs'])))
-            print("Shape of observations: {}".format(visual_training_set['obs'][0].shape))
-            print("Action dimension: {}".format(len(visual_training_set['action'][0])))
-            print("Robot_qpos dimension: {}".format(len(visual_training_set['robot_qpos'][0])))
-            dataset_path = "{}/{}_dataset_demo_{}_aug.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""),demo_id)
-
-            with open(dataset_path,'wb') as file:
-                pickle.dump(visual_training_set, file)
-                
-        print('dataset is saved in the folder: ./real_sim_mix/baked_data/{}'.format(dataset_folder))
-        meta_data_path = "{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
-        meta_data['init_obj_poses'] = init_obj_poses
-        with open(meta_data_path,'wb') as file:
-            pickle.dump(meta_data, file)
-
 
 def average_angle_handqpos(hand_qpos):
     delta_angles = []
@@ -383,7 +326,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
     # }
 
     real_camera_cfg = {
-        "relocate_view": dict( pose= lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(320, 240))
+        "relocate_view": dict( pose= lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(224, 224))
     }
 
     if task_name == 'table_door':
@@ -664,14 +607,18 @@ if __name__ == '__main__':
     args = {
         #'demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle_0.73',
         #'sim_demo_folder': None,
-        'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle',
+        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle',
         #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_tomato_soup_can',
         #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_sugar_box',
+        'sim_demo_folder' : './sim/raw_data/xarm/less_random/dclaw',
 
         #'real_demo_folder': None,
-        'real_demo_folder' : './real/raw_data/pick_place_mustard_bottle',
+        'real_demo_folder' : './real/raw_data/dclaw',
         #'real_demo_folder' : './real/raw_data/pick_place_tomato_soup_can',
         #'real_demo_folder' : './real/raw_data/pick_place_sugar_box',
+
+        'task_name': 'dclaw',
+        'object_name': 'dclaw_3x',
     
         "robot_name": "xarm6_allegro_modified_finger",
         'with_features' : True,
@@ -683,7 +630,6 @@ if __name__ == '__main__':
         'randomization_prob': 0.2,
         'num_data_aug': 5,
         'image_augmenter': T.AugMix(),
-        'kinematic_aug': 400,
         'delta_ee_pose_bound': args.delta_ee_pose_bound,
         'out_folder': args.out_folder
     }
@@ -697,5 +643,3 @@ if __name__ == '__main__':
     elif args['sim_demo_folder'] is not None and args['real_demo_folder'] is not None:
         print("##########################Using Sim and Real##################################")
         play_multiple_sim_real_visual(args)
-    elif args['kinematic_aug'] > 0:
-        play_multiple_sim_aug(args)
