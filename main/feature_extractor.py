@@ -233,7 +233,7 @@ def generate_feature_extraction_model(backbone_type):
   if "clip" not in backbone_type:
 
     preprocess = transforms.Compose([
-      transforms.Resize((320, 240)),  # resize to 224*224
+      transforms.Resize((224, 224)),  # resize to 224*224
       transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     ])
 
