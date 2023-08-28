@@ -316,9 +316,7 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
     print("avg_success in epoch", epoch, ":", avg_success)
     return avg_success
 
-def train_in_one_epoch(args, agent, it_per_epoch, bc_train_dataloader, bc_validation_dataloader, L, epoch):
-    args = parse_args()
-    loss_train = 0
+def compute_loss(agent, it_per_epoch, bc_train_dataloader, bc_validation_dataloader, L, epoch):
     for _ in tqdm(range(it_per_epoch)):
         data_batch = next(iter(bc_train_dataloader))
         obs_batch = data_batch[0].to(device)
@@ -334,29 +332,47 @@ def train_in_one_epoch(args, agent, it_per_epoch, bc_train_dataloader, bc_valida
             next_state_batch = None
             robot_qpos_batch = data_batch[2].to(device)
 
-        # if args['use_augmentation'] and len(obs_batch.shape)==4:
-        #     obs_batch = aug(obs_batch)
-
         if state_batch is not None:
-            loss = agent.update(obs=obs_batch, state=state_batch, next_obs=next_obs_batch, next_state=next_state_batch,  action=action_batch, L=L, step=epoch, concatenated_obs=None, concatenated_next_obs=None,sim_real_label=sim_real_label)
+            loss = agent.compute_loss(obs=obs_batch, state=state_batch, next_obs=next_obs_batch, next_state=next_state_batch,  action=action_batch, L=L, step=epoch, concatenated_obs=None, concatenated_next_obs=None,sim_real_label=sim_real_label)
         else:
-            loss = agent.update(concatenated_obs=obs_batch, concatenated_next_obs=next_obs_batch, action=action_batch, robot_qpos=robot_qpos_batch, sim_real_label=sim_real_label, L=L, step=epoch)
-        loss_train += loss
+            loss = agent.compute_loss(concatenated_obs=obs_batch, concatenated_next_obs=next_obs_batch, action=action_batch, robot_qpos=robot_qpos_batch, sim_real_label=sim_real_label, L=L, step=epoch)
 
-    loss_train /= it_per_epoch
+    return loss
 
+def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_epoch_sim, bc_train_dataloader_real, bc_validation_dataloader_real, bc_train_dataloader_sim, bc_validation_dataloader_sim, L, epoch):
+    loss_train_real = 0
+    loss_train_sim = 0
+    loss_train = 0
+
+    loss_real = compute_loss(agent,it_per_epoch_real,bc_train_dataloader_real,bc_validation_dataloader_real,L,epoch)
+    loss_train_real += loss_real.detach().cpu().item()
+    
+    loss_sim = compute_loss(agent,it_per_epoch_sim,bc_train_dataloader_sim,bc_validation_dataloader_sim,L,epoch)
+    loss_train_sim += loss_sim.detach().cpu().item()
+
+    loss_train_real /= it_per_epoch_real
+    loss_train_sim /= it_per_epoch_sim
+
+    loss_total = loss_real*sim_real_ratio + loss_sim
+    bc_loss = agent.update(loss_total, L, epoch)
     agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
 
-    loss_val = evaluate(agent, bc_validation_dataloader, L, epoch)
+    loss_val_real = evaluate(agent, bc_validation_dataloader_real, L, epoch)
+    loss_val_sim = evaluate(agent, bc_validation_dataloader_sim, L, epoch)
 
-    return loss_train, loss_val
+    return loss_train_real,loss_train_sim,loss_val_real,loss_val_sim
 
 def main(args):
     # read and prepare data
     Prepared_Data = prepare_real_sim_data(args['dataset_folder'],
         args["backbone_type"], args['real_batch_size'],  args['sim_batch_size'], args['val_ratio'], seed = 20230806, using_real_sim = True)
-    print('Data prepared')
+    print('Data prepared') 
+    sim_real_ratio = Prepared_Data['sim_real_ratio']
+
+    print('Sim Data : Real Data = ', sim_real_ratio) 
+
     bc_train_set = Prepared_Data['bc_train_set_real']
+    
     if 'state' in bc_train_set.dummy_data.keys():
         state_shape = len(bc_train_set.dummy_data['state'])
         obs_shape = bc_train_set.dummy_data['obs'].shape
@@ -398,8 +414,10 @@ def main(args):
         best_success = 0
         for epoch in range(args['num_epochs']):
             print('  ','Epoch: ', epoch)
-            loss_train_real, loss_val_real = train_in_one_epoch(args, agent, Prepared_Data['it_per_epoch_real'],Prepared_Data['bc_train_dataloader_real'], Prepared_Data['bc_validation_dataloader_real'],  L, epoch)
-            loss_train_sim, loss_val_sim= train_in_one_epoch(args, agent, Prepared_Data['it_per_epoch_sim'],Prepared_Data['bc_train_dataloader_sim'], Prepared_Data['bc_validation_dataloader_sim'],  L, epoch)
+            loss_train_real,loss_train_sim, loss_val_real,loss_val_sim = train_real_sim_in_one_epoch(agent, sim_real_ratio,
+                                            Prepared_Data['it_per_epoch_real'],Prepared_Data['it_per_epoch_sim'],
+                                            Prepared_Data['bc_train_dataloader_real'], Prepared_Data['bc_validation_dataloader_real'], 
+                                            Prepared_Data['bc_train_dataloader_sim'], Prepared_Data['bc_validation_dataloader_sim'], L, epoch)
 
             metrics = {
                 "loss/train_real": loss_train_real,
@@ -446,8 +464,6 @@ def main(args):
         print(f"Final success rate: {final_success:.4f}")
         wandb.finish()
 
-    
-
 
 def parse_args():
     parser = ArgumentParser()
@@ -468,7 +484,7 @@ if __name__ == '__main__':
     args = {
         'dataset_folder': args.demo_folder,
          # 8192 16384 32678 65536
-        'real_batch_size': 55000,
+        'real_batch_size': 32678,
         'sim_batch_size': 65536,
         'val_ratio': 0.1,
         'bc_lr': 2e-5,

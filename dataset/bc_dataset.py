@@ -122,7 +122,10 @@ def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_ba
         print("=== real_demo_length: ===")
         print(real_demo_length)
         print("=== sim_demo_length: ===")
-        print(len(data["sim_real_label"])-real_demo_length)
+        sim_demo_length = len(data["sim_real_label"])-real_demo_length
+        print(sim_demo_length)
+
+        sim_real_ratio = sim_demo_length/real_demo_length
 
         print("=== preparing real data: ===")
         real_data = {'obs': data['obs'][:real_demo_length], 'next_obs': data['next_obs'][:real_demo_length], 'robot_qpos': data['robot_qpos'][:real_demo_length], 'action': data['action'][:real_demo_length], 'sim_real_label': data['sim_real_label'][:real_demo_length]}
@@ -133,7 +136,7 @@ def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_ba
         Prepared_Data = {"it_per_epoch_real": it_per_epoch_real, "bc_train_set_real": bc_train_set_real, 
                      "bc_train_dataloader_real": bc_train_dataloader_real, "bc_validation_dataloader_real": bc_validation_dataloader_real,
                      "it_per_epoch_sim": it_per_epoch_sim, "bc_train_set_sim": bc_train_set_sim, "bc_train_dataloader_sim": bc_train_dataloader_sim, 
-                     "bc_validation_dataloader_sim": bc_validation_dataloader_sim}
+                     "bc_validation_dataloader_sim": bc_validation_dataloader_sim, "sim_real_ratio": sim_real_ratio}
     else:
         print("=== preparing only sim or real data: ===")
         print("=== demo_length: ===")

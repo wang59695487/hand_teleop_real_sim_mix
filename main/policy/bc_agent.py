@@ -132,19 +132,6 @@ class BCSSAgent(object):
 
             self.inv.train(train_inv)
 
-    def update_policy(self, concatenated_obs, action, robot_qpos, sim_real_label, L=None, step=None):
-        pred_action = self.bc_policy_network(concatenated_obs, robot_qpos, sim_real_label)
-        bc_loss = F.mse_loss(pred_action, action, reduction='sum')
-        
-        if L is not None:
-            L.log('train/bc_loss', bc_loss.item(), step)
-        
-        self.bc_module_optimizer.zero_grad()
-        bc_loss.backward()
-        self.bc_module_optimizer.step()
-
-        return bc_loss.detach().cpu().item()
-
     def update_inv(self, h, s, next_h, next_s, action, L=None, step=None):
         '''
         h: stacked visual obs batch
@@ -204,7 +191,7 @@ class BCSSAgent(object):
 
         return inv_loss.item()
 
-    def update(self, obs=None, state=None, next_obs=None, next_state=None, action=None, robot_qpos=None, L=None, step=None, concatenated_obs=None, concatenated_next_obs=None, sim_real_label=None):
+    def compute_loss(self, obs=None, state=None, next_obs=None, next_state=None, action=None, robot_qpos=None, L=None, step=None, concatenated_obs=None, concatenated_next_obs=None, sim_real_label=None):
         if concatenated_obs is None:
             assert obs != None
             batch_size = obs.shape[0]
@@ -232,14 +219,27 @@ class BCSSAgent(object):
             #print("##############################inv network is not using##############################")
             assert self.inv == None
 
-        loss = self.update_policy(concatenated_obs, action, robot_qpos, sim_real_label, L, step)
+        pred_action = self.bc_policy_network(concatenated_obs, robot_qpos, sim_real_label)
+        bc_loss = F.mse_loss(pred_action, action, reduction='sum')
 
-        if self.inv is not None and step % self.ss_update_freq == 0:
-            next_obs = next_obs.to(device)
-            next_state = next_state.to(device)
-            self.update_inv(obs, state, next_obs, next_state, action, L, step)     
+        return bc_loss
+
+    
+    def update(self, bc_loss, L=None, step=None):
+               
+        if L is not None:
+            L.log('train/bc_loss_total', bc_loss.item(), step)
         
-        return loss
+        self.bc_module_optimizer.zero_grad()
+        bc_loss.backward()
+        self.bc_module_optimizer.step()
+
+        # if self.inv is not None and step % self.ss_update_freq == 0:
+        #     next_obs = next_obs.to(device)
+        #     next_state = next_state.to(device)
+        #     self.update_inv(obs, state, next_obs, next_state, action, L, step)     
+
+        return bc_loss.detach().cpu().item()
 
     def validate(self, obs=None, state=None, action=None, robot_qpos=None, L=None, step=None, concatenated_obs=None,sim_real_label=None, mode='eval'):
         with torch.no_grad():
