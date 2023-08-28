@@ -110,21 +110,22 @@ class BCDataset(Dataset):
                 return obs, next_obs, state, next_state, action, label
         return obs, next_obs, robot_qpos, action, label
 
-def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_batch_size, val_ratio = 0.1, seed = 0, using_real_sim = False):
+def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_batch_size, val_ratio = 0.1, seed = 0):
     print('=== Loading trajectories ===')
     with open('{}/{}_dataset.pickle'.format(dataset_folder, backbone_type.replace("/", "")),'rb') as file:
         data = pickle.load(file)
 
-    if using_real_sim:
-        for i in range(len(data["sim_real_label"])):
-            if data["sim_real_label"][i] == 1:
-                real_demo_length = i + 1      
-        print("=== real_demo_length: ===")
-        print(real_demo_length)
-        print("=== sim_demo_length: ===")
-        sim_demo_length = len(data["sim_real_label"])-real_demo_length
-        print(sim_demo_length)
-
+   
+    for i in range(len(data["sim_real_label"])):
+        if data["sim_real_label"][i] == 1:
+            real_demo_length = i + 1      
+    print("=== real_demo_length: ===")
+    print(real_demo_length)
+    print("=== sim_demo_length: ===")
+    sim_demo_length = len(data["sim_real_label"])-real_demo_length
+    print(sim_demo_length)
+        
+    if real_demo_length > 0 and sim_demo_length > 0:
         sim_real_ratio = sim_demo_length/real_demo_length
 
         print("=== preparing real data: ===")
@@ -136,15 +137,15 @@ def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_ba
         Prepared_Data = {"it_per_epoch_real": it_per_epoch_real, "bc_train_set_real": bc_train_set_real, 
                      "bc_train_dataloader_real": bc_train_dataloader_real, "bc_validation_dataloader_real": bc_validation_dataloader_real,
                      "it_per_epoch_sim": it_per_epoch_sim, "bc_train_set_sim": bc_train_set_sim, "bc_train_dataloader_sim": bc_train_dataloader_sim, 
-                     "bc_validation_dataloader_sim": bc_validation_dataloader_sim, "sim_real_ratio": sim_real_ratio}
+                     "bc_validation_dataloader_sim": bc_validation_dataloader_sim, "sim_real_ratio": sim_real_ratio, "data_type": "real_sim"}
     else:
         print("=== preparing only sim or real data: ===")
         print("=== demo_length: ===")
         # print(len(data["sim_real_label"]))
-        data_type = "sim" if dataset_folder.split("/")[0] == "sim" else "real"
+        data_type = "sim" if real_demo_length == 0 else "real"
         it_per_epoch, bc_train_set, bc_train_dataloader, bc_validation_dataloader = prepare_data(data, real_batch_size, val_ratio, seed, data_type)
         Prepared_Data = {"it_per_epoch": it_per_epoch, "bc_train_set": bc_train_set, "bc_train_dataloader": bc_train_dataloader, 
-                     "bc_validation_dataloader": bc_validation_dataloader}
+                     "bc_validation_dataloader": bc_validation_dataloader,"data_type": data_type}
 
     return Prepared_Data
     

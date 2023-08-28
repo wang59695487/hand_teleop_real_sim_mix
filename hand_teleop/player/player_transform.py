@@ -33,10 +33,10 @@ def bake_visual_real_demonstration_test(retarget=False, index = 0):
     # Recorder
     shutil.rmtree('./temp/demos/player', ignore_errors=True)
     os.makedirs('./temp/demos/player')
-    path = "./sim/raw_data/xarm/less_random/pick_place_mustard_bottle/mustard_bottle_0002.pickle"
-    #path = "./sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0001.pickle"
-    #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0001.pickle"
-    #path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
+    path = "./sim/pick_place_mustard_bottle/mustard_bottle_0002.pickle"
+    #path = "./sim/raw_data/pick_place_sugar_box/sugar_box_0001.pickle"
+    #path = "sim/raw_data/pick_place_tomato_soup_can/tomato_soup_can_0001.pickle"
+    #path = "sim/raw_data/dclaw/dclaw_3x_0001.pickle"
 
     all_data = np.load(path, allow_pickle=True)
     meta_data = all_data["meta_data"]

@@ -45,7 +45,7 @@ def main():
     folder_name = task_name
     if task_name == "relocate" or task_name == "pick_place":
         folder_name = '{}_{}'.format(folder_name, object_name)
-    out_folder = f"./sim/raw_data/xarm/less_random/{folder_name}/"
+    out_folder = f"./sim/raw_data/{folder_name}/"
     os.makedirs(out_folder, exist_ok=True)
     if len(os.listdir(out_folder)) == 0:
         num_test = "0001"
@@ -99,7 +99,7 @@ def main():
     # root_data_path = "/home/sim/data/teleop"
     # path = Path.home() / "data" / "teleop" / "hci" / operator
     # path = path / f"{task_name}-{robot_name}-{num_test}.pickle"
-    path = "./sim/raw_data/xarm/less_random/{}/{}.pickle".format(folder_name, demo_name)
+    path = "./sim/raw_data/{}/{}.pickle".format(folder_name, demo_name)
     # path = "./test_demo.pickle"
 
     weight = 1

@@ -39,10 +39,10 @@ def compute_inverse_kinematics(delta_pose_world, palm_jacobian, damping=0.05):
 def bake_visual_demonstration_test_augmented(all_data, init_pose_aug, retarget=False):
     from pathlib import Path
     # Recorder
-    #path = f"./sim/raw_data/xarm/less_random/{task_name}_{object_name}/{object_name}_{demo_index:04d}.pickle"
-    #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0011.pickle"
-    #path = "sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0050.pickle"
-    #path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
+    #path = f"./sim/raw_data/{task_name}_{object_name}/{object_name}_{demo_index:04d}.pickle"
+    #path = "sim/raw_data/pick_place_tomato_soup_can/tomato_soup_can_0011.pickle"
+    #path = "sim/raw_data/pick_place_sugar_box/sugar_box_0050.pickle"
+    #path = "sim/raw_data/dclaw/dclaw_3x_0001.pickle"
     #all_data = np.load(path, allow_pickle=True)
     meta_data = all_data["meta_data"]
     task_name = meta_data["env_kwargs"]['task_name']
@@ -238,10 +238,10 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
 
     from pathlib import Path
     # Recorder
-    #path = f"./sim/raw_data/xarm/less_random/{task_name}_{object_name}/{object_name}_{demo_index:04d}.pickle"
-    #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0011.pickle"
-    #path = "sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0050.pickle"
-    #path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
+    #path = f"./sim/raw_data/{task_name}_{object_name}/{object_name}_{demo_index:04d}.pickle"
+    #path = "sim/raw_data/pick_place_tomato_soup_can/tomato_soup_can_0011.pickle"
+    #path = "sim/raw_data/pick_place_sugar_box/sugar_box_0050.pickle"
+    #path = "sim/raw_data/dclaw/dclaw_3x_0001.pickle"
     #all_data = np.load(path, allow_pickle=True)
     meta_data = all_data["meta_data"]
     task_name = meta_data["env_kwargs"]['task_name']

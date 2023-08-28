@@ -18,6 +18,11 @@ python hand_teleop/player/play_multiple_demonstrations_aug.py --backbone-type=re
 python hand_teleop/player/play_multiple_demonstrations_aug.py --backbone-type=regnet_y_3_2gf --delta-ee-pose-bound=0.0005 --out-folder=real_sim_mix/baked_data/pick_place_tomato_soup_can_image_kinematic_aug
 
 python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --delta-ee-pose-bound=0.0005 --out-folder=real_sim_mix/baked_data/dclaw_image_aug_only
+
+python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --delta-ee-pose-bound=0.0005 --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle_aug_img_only
+
+python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/pick_place_mustard_bottle --sim-folder=sim/raw_data/pick_place_mustard_bottle --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle --task-name=pick_place --object-name=mustard_bottle
+
 ```
 Currently, these following backbones are supported:
 - resnet50
@@ -66,15 +71,14 @@ python main/train.py \
     --ckpt=logs/Best_models/epoch_1100.pt
 
 python main/train.py \
-    --demo-folder=real/baked_data/raw_data_pick_place_mustard_bottle\
-    --backbone-type=regnet_y_3_2gf\
-    --eval-freq=100 \
-    --eval-start-epoch=200
-
-python main/train.py \
-    --demo-folder=./real_sim_mix/baked_data/raw_data_pick_place_mustard_bottle\
+    --demo-folder=real/baked_data/pick_place_mustard_bottle\
     --backbone-type=regnet_y_3_2gf\
     --eval-freq=100 
+
+nohup python main/train_real_sim.py \
+    --demo-folder=real_sim_mix/baked_data/pick_place_mustard_bottle_aug_img_only \
+    --backbone-type=regnet_y_3_2gf\
+    --eval-freq=100 > ./logs 2>&1 &
 
 
 The `eval-freq` argument specifies the frequency of evaluating and saving the model. which is 200 epochs in this case.

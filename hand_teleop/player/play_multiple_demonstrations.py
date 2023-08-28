@@ -27,11 +27,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def play_multiple_sim_visual(args):
     demo_files = []
-    # dataset_folder = '{}_{}_{}'.format(args['sim_demo_folder'].split('/')[-3],args['sim_demo_folder'].split('/')[-2],args['sim_demo_folder'].split('/')[-1])
-    # os.makedirs("./sim/baked_data/{}".format(dataset_folder), exist_ok=True)
     dataset_folder = args["out_folder"]
     os.makedirs(dataset_folder, exist_ok=True)
-    # shutil.rmtree("./sim/baked_data/{}".format(dataset_folder),ignore_errors=True)
+
     if args['with_features']:
         assert args['backbone_type'] != None
         model, preprocess = generate_feature_extraction_model(args["backbone_type"])
@@ -41,6 +39,7 @@ def play_multiple_sim_visual(args):
     for file_name in os.listdir(args['sim_demo_folder']):
         if ".pickle" in file_name:
             demo_files.append(os.path.join(args['sim_demo_folder'], file_name))
+
     print('Replaying the sim demos and creating the dataset:')
     print('---------------------')
     visual_training_set = dict(obs=[], next_obs=[], state=[], next_state=[], action=[], robot_qpos=[], sim_real_label=[])
@@ -104,14 +103,16 @@ def play_multiple_real_visual(args):
 
         with open(file_name, 'rb') as file:
             real_demo = pickle.load(file)
-            #path = "./sim/raw_data/xarm/less_random/pick_place_mustard_bottle/mustard_bottle_0004.pickle"
-            task_name = args['real_demo_folder'].split('/')[-1]
-            path = "./sim/raw_data/xarm/less_random/{}/{}_{}_0004.pickle".format(task_name,task_name.split('_')[-2],task_name.split('_')[-1])
+            #path = "./sim/raw_data/pick_place_mustard_bottle/mustard_bottle_0004.pickle"
+            dir_name = args['real_demo_folder'].split('/')[-1]
+            path = "./sim/raw_data/{}/{}_0004.pickle".format(dir_name,args['object_name'])
+            print("sim_file: ", path)
             demo = np.load(path, allow_pickle=True)
 
             visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, real_demo=real_demo, real_images=image_file, robot_name=args['robot_name'], 
                                                                     domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], 
                                                                     retarget=args['retarget'],using_real_data=True)
+            
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
         visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model = model, preprocess = preprocess)
@@ -165,8 +166,9 @@ def play_multiple_sim_real_visual(args):
 
         with open(file_name, 'rb') as file:
             real_demo = pickle.load(file)
-            task_name = args['real_demo_folder'].split('/')[-1]
-            path = "./sim/raw_data/xarm/less_random/{}/{}_0004.pickle".format(args['task_name'],args['object_name'])
+            dir_name = args['real_demo_folder'].split('/')[-1]
+            path = "./sim/raw_data/{}/{}_0004.pickle".format(dir_name, args['object_name'])
+            print("sim_file: ", path)
             demo = np.load(path, allow_pickle=True)
             visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, real_demo=real_demo, real_images=image_file, robot_name=args['robot_name'], 
                                                                     domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], 
@@ -322,10 +324,6 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
     env.reset()
 
-    # real_camera_cfg = {
-    #     "relocate_view": dict( pose= lab.ROBOT2BASE * lab.CAM2ROBOT, fov=np.deg2rad(47.4), resolution=(320, 240))
-    # }
-
     real_camera_cfg = {
         "relocate_view": dict( pose= lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(224, 224))
     }
@@ -392,8 +390,8 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
             env.robot.set_qvel(baked_data["robot_qvel"][0])
 
     robot_pose = env.robot.get_pose()
-    rotation_matrix = transforms3d.quaternions.quat2mat(robot_pose.q)
-    world_to_robot = transforms3d.affines.compose(-np.matmul(rotation_matrix.T,robot_pose.p),rotation_matrix.T,np.ones(3))
+    # rotation_matrix = transforms3d.quaternions.quat2mat(robot_pose.q)
+    # world_to_robot = transforms3d.affines.compose(-np.matmul(rotation_matrix.T,robot_pose.p),rotation_matrix.T,np.ones(3))
 
     if using_real_data:
         ee_pose = baked_data[0]["ee_pose"]
@@ -440,7 +438,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     arm_qpos = arm_qvel + env.robot.get_qpos()[:env.arm_dof]
 
                     observation = env.get_observation()
-                    rgb_pic = torchvision.io.read_image(path = os.path.join('.'+real_images, "frame%04i.png" % idx), mode=torchvision.io.ImageReadMode.RGB)
+                    rgb_pic = torchvision.io.read_image(path = os.path.join(real_images, "frame%04i.png" % idx), mode=torchvision.io.ImageReadMode.RGB)
                     rgb_pic = v2.Pad(padding=[0,80])(rgb_pic)
                     rgb_pic = v2.Resize(size=[224,224])(rgb_pic)
                     rgb_pic = rgb_pic.permute(1,2,0)
@@ -458,9 +456,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     target_qpos = np.concatenate([arm_qpos, hand_qpos])
                     env.step(target_qpos)
     else:
-
-        for idx, (obs, qpos, state, action, ee_pose) in enumerate(zip(baked_data["obs"], baked_data["robot_qpos"], baked_data["state"],
-                                        baked_data["action"], baked_data["ee_pose"])):
+        for idx in range(len(baked_data)):
             # NOTE: robot.get_qpos() version
             if idx != len(baked_data['obs'])-1:
                 ee_pose_next = baked_data["ee_pose"][idx + 1]
@@ -594,8 +590,11 @@ def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--backbone-type", required=True)
     parser.add_argument("--delta-ee-pose-bound", default="0.0005", type=float)
+    parser.add_argument("--img-data-aug", default="5", type=int)
     parser.add_argument("--sim-folder", default=None)
     parser.add_argument("--real-folder", default=None)
+    parser.add_argument("--task-name", required=True)
+    parser.add_argument("--object-name", required=True)
     parser.add_argument("--out-folder", required=True)
     args = parser.parse_args()
 
@@ -608,22 +607,10 @@ if __name__ == '__main__':
     args = parse_args()
 
     args = {
-        #'demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle_0.73',
-        'sim_demo_folder': None,
-        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle',
-        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_tomato_soup_can',
-        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_sugar_box',
-        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/dclaw',
-
-        #'real_demo_folder': None,
-        #'real_demo_folder' : './real/raw_data/dclaw',
-        'real_demo_folder' : './real/raw_data/pick_place_mustard_bottle',
-        #'real_demo_folder' : './real/raw_data/pick_place_tomato_soup_can',
-        #'real_demo_folder' : './real/raw_data/pick_place_sugar_box',
-
-        'task_name': 'dclaw',
-        'object_name': 'dclaw_3x',
-    
+        "sim_demo_folder": args.sim_folder,
+        "real_demo_folder": args.real_folder,
+        "task_name": args.task_name,
+        "object_name": args.object_name,
         "robot_name": "xarm6_allegro_modified_finger",
         'with_features' : True,
         'backbone_type' : args.backbone_type,
@@ -632,7 +619,7 @@ if __name__ == '__main__':
         'save_each_frame' : False,
         'domain_randomization': False,
         'randomization_prob': 0.2,
-        'num_data_aug': 5,
+        'num_data_aug': args.img_data_aug,
         'image_augmenter': T.AugMix(),
         'delta_ee_pose_bound': args.delta_ee_pose_bound,
         'out_folder': args.out_folder
