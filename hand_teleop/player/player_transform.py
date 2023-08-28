@@ -9,9 +9,6 @@ from pathlib import Path
 import os
 import imageio
 
-import torchvision.transforms as T
-from torchvision.transforms import v2
-
 from hand_teleop.env.rl_env.base import BaseRLEnv, compute_inverse_kinematics
 from hand_teleop.env.rl_env.pen_draw_env import PenDrawRLEnv
 from hand_teleop.env.rl_env.relocate_env import RelocateRLEnv
@@ -36,10 +33,10 @@ def bake_visual_real_demonstration_test(retarget=False, index = 0):
     # Recorder
     shutil.rmtree('./temp/demos/player', ignore_errors=True)
     os.makedirs('./temp/demos/player')
-    #path = "./sim/raw_data/xarm/less_random/pick_place_mustard_bottle/mustard_bottle_0002.pickle"
+    path = "./sim/raw_data/xarm/less_random/pick_place_mustard_bottle/mustard_bottle_0002.pickle"
     #path = "./sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0001.pickle"
     #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0001.pickle"
-    path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
+    #path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
 
     all_data = np.load(path, allow_pickle=True)
     meta_data = all_data["meta_data"]
@@ -179,7 +176,7 @@ def bake_visual_real_demonstration_test(retarget=False, index = 0):
         baked_data = player.bake_demonstration(retargeting, method="tip_middle", indices=indices)
     elif using_real:
         record_root  = "./real/raw_data/pick_place_mustard_bottle"
-        record_root  = "./real/raw_data/dclaw"
+        #record_root  = "./real/raw_data/dclaw"
         
         #record_root  = "./real/raw_data/pick_place_tomato_soup_can"
         #record_root  = "./real/raw_data/pick_place_sugar_box"
@@ -220,11 +217,6 @@ def bake_visual_real_demonstration_test(retarget=False, index = 0):
             # env.step(target_qpos)
             env.robot.set_qpos(target_qpos)
             env.render()
-            rgb_pic = torchvision.io.read_image(path = os.path.join('.'+real_images, "frame%04i.png" % idx), mode=torchvision.io.ImageReadMode.RGB)
-            rgb_pic = v2.Pad(padding=[0,80])(rgb_pic)
-            rgb_pic.permute(1,2,0)
-            rgb_pic = rgb_pic.cpu().detach().numpy()
-            imageio.imsave(os.path.join('.'+real_images, "frame%04i.png" % idx), rgb_pic)
     
     with record_path.open("wb") as f:
         pickle.dump(baked_data, f)
