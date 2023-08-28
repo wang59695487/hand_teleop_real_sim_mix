@@ -105,8 +105,8 @@ def play_multiple_real_visual(args):
         with open(file_name, 'rb') as file:
             real_demo = pickle.load(file)
             #path = "./sim/raw_data/xarm/less_random/pick_place_mustard_bottle/mustard_bottle_0004.pickle"
-            task_name = args['real_demo_folder'].split('/')[-1]
-            path = "./sim/raw_data/xarm/less_random/{}/{}_{}_0004.pickle".format(task_name,task_name.split('_')[-2],task_name.split('_')[-1])
+            task_name = args['task_name']
+            path = "./sim/raw_data/xarm/less_random/{}_{}/{}_0004.pickle".format(args['task_name'], args['object_name'], args['object_name'])
             demo = np.load(path, allow_pickle=True)
 
             visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, real_demo=real_demo, real_images=image_file, robot_name=args['robot_name'], 
@@ -132,7 +132,7 @@ def play_multiple_real_visual(args):
         dataset_path = "{}/{}_dataset.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
         with open(dataset_path,'wb') as file:
             pickle.dump(visual_training_set, file)
-    print('dataset is saved in the folder: ./sim/baked_data/{}'.format(dataset_folder))
+    print('dataset is saved in the folder: {}'.format(dataset_folder))
     meta_data_path = "{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
     meta_data['init_obj_poses'] = init_obj_poses
     with open(meta_data_path,'wb') as file:
@@ -165,8 +165,9 @@ def play_multiple_sim_real_visual(args):
 
         with open(file_name, 'rb') as file:
             real_demo = pickle.load(file)
-            task_name = args['real_demo_folder'].split('/')[-1]
-            path = "./sim/raw_data/xarm/less_random/{}/{}_0004.pickle".format(args['task_name'],args['object_name'])
+            task_name = args['real_demo_folder'].split('_')[-1]
+            
+            path = "./sim/raw_data/xarm/less_random/{}_{}/{}_0004.pickle".format(args['task_name'], args['object_name'], args['object_name'])
             demo = np.load(path, allow_pickle=True)
             visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, real_demo=real_demo, real_images=image_file, robot_name=args['robot_name'], 
                                                                     domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], 
@@ -440,7 +441,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     arm_qpos = arm_qvel + env.robot.get_qpos()[:env.arm_dof]
 
                     observation = env.get_observation()
-                    rgb_pic = torchvision.io.read_image(path = os.path.join('.'+real_images, "frame%04i.png" % idx), mode=torchvision.io.ImageReadMode.RGB)
+                    rgb_pic = torchvision.io.read_image(path = os.path.join(real_images, "frame%04i.png" % idx), mode=torchvision.io.ImageReadMode.RGB)
                     rgb_pic = v2.Pad(padding=[0,80])(rgb_pic)
                     rgb_pic = v2.Resize(size=[224,224])(rgb_pic)
                     rgb_pic = rgb_pic.permute(1,2,0)
@@ -608,22 +609,10 @@ if __name__ == '__main__':
     args = parse_args()
 
     args = {
-        #'demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle_0.73',
-        'sim_demo_folder': None,
-        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle',
-        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_tomato_soup_can',
-        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_sugar_box',
-        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/dclaw',
-
-        #'real_demo_folder': None,
-        #'real_demo_folder' : './real/raw_data/dclaw',
-        'real_demo_folder' : './real/raw_data/pick_place_mustard_bottle',
-        #'real_demo_folder' : './real/raw_data/pick_place_tomato_soup_can',
-        #'real_demo_folder' : './real/raw_data/pick_place_sugar_box',
-
-        'task_name': 'dclaw',
-        'object_name': 'dclaw_3x',
-    
+        'sim_demo_folder' : args.sim_folder,
+        'real_demo_folder' : args.real_folder,
+        'task_name': 'pick_place',
+        'object_name': 'mustard_bottle',
         "robot_name": "xarm6_allegro_modified_finger",
         'with_features' : True,
         'backbone_type' : args.backbone_type,
