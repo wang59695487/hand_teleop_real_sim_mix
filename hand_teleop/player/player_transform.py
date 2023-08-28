@@ -9,6 +9,9 @@ from pathlib import Path
 import os
 import imageio
 
+import torchvision.transforms as T
+from torchvision.transforms import v2
+
 from hand_teleop.env.rl_env.base import BaseRLEnv, compute_inverse_kinematics
 from hand_teleop.env.rl_env.pen_draw_env import PenDrawRLEnv
 from hand_teleop.env.rl_env.relocate_env import RelocateRLEnv
@@ -217,6 +220,11 @@ def bake_visual_real_demonstration_test(retarget=False, index = 0):
             # env.step(target_qpos)
             env.robot.set_qpos(target_qpos)
             env.render()
+            rgb_pic = torchvision.io.read_image(path = os.path.join('.'+real_images, "frame%04i.png" % idx), mode=torchvision.io.ImageReadMode.RGB)
+            rgb_pic = v2.Pad(padding=[0,80])(rgb_pic)
+            rgb_pic.permute(1,2,0)
+            rgb_pic = rgb_pic.cpu().detach().numpy()
+            imageio.imsave(os.path.join('.'+real_images, "frame%04i.png" % idx), rgb_pic)
     
     with record_path.open("wb") as f:
         pickle.dump(baked_data, f)
