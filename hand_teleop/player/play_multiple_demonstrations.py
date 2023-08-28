@@ -441,7 +441,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
                     observation = env.get_observation()
                     rgb_pic = torchvision.io.read_image(path = os.path.join('.'+real_images, "frame%04i.png" % idx), mode=torchvision.io.ImageReadMode.RGB)
-                    padded_imgs = v2.Pad(padding=[0,80])(rgb_pic)
+                    rgb_pic = v2.Pad(padding=[0,80])(rgb_pic)
                     rgb_pic = rgb_pic.permute(1,2,0)
                     #print("rgb_pic: ", rgb_pic.shape)
                     rgb_pic = (rgb_pic / 255.0).type(torch.float32)
@@ -608,14 +608,15 @@ if __name__ == '__main__':
 
     args = {
         #'demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle_0.73',
-        #'sim_demo_folder': None,
+        'sim_demo_folder': None,
         #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_mustard_bottle',
         #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_tomato_soup_can',
         #'sim_demo_folder' : './sim/raw_data/xarm/less_random/pick_place_sugar_box',
-        'sim_demo_folder' : './sim/raw_data/xarm/less_random/dclaw',
+        #'sim_demo_folder' : './sim/raw_data/xarm/less_random/dclaw',
 
         #'real_demo_folder': None,
-        'real_demo_folder' : './real/raw_data/dclaw',
+        #'real_demo_folder' : './real/raw_data/dclaw',
+        'real_demo_folder' : './real/raw_data/pick_place_mustard_bottle',
         #'real_demo_folder' : './real/raw_data/pick_place_tomato_soup_can',
         #'real_demo_folder' : './real/raw_data/pick_place_sugar_box',
 
