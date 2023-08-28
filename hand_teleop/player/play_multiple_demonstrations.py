@@ -440,6 +440,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
                     observation = env.get_observation()
                     rgb_pic = torchvision.io.read_image(path = os.path.join('.'+real_images, "frame%04i.png" % idx), mode=torchvision.io.ImageReadMode.RGB)
+                    padded_imgs = T.v2.Pad(padding=[0,80])(rgb_pic)
                     rgb_pic = rgb_pic.permute(1,2,0)
                     #print("rgb_pic: ", rgb_pic.shape)
                     rgb_pic = (rgb_pic / 255.0).type(torch.float32)
