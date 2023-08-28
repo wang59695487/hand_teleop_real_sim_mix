@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 import torch
 import torchvision
 import torchvision.transforms as T
+from torchvision.transforms import v2
 
 from hand_teleop.env.rl_env.laptop_env import LaptopRLEnv
 from hand_teleop.env.rl_env.pick_place_env import PickPlaceRLEnv
@@ -440,7 +441,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
                     observation = env.get_observation()
                     rgb_pic = torchvision.io.read_image(path = os.path.join('.'+real_images, "frame%04i.png" % idx), mode=torchvision.io.ImageReadMode.RGB)
-                    padded_imgs = T.v2.Pad(padding=[0,80])(rgb_pic)
+                    padded_imgs = v2.Pad(padding=[0,80])(rgb_pic)
                     rgb_pic = rgb_pic.permute(1,2,0)
                     #print("rgb_pic: ", rgb_pic.shape)
                     rgb_pic = (rgb_pic / 255.0).type(torch.float32)
