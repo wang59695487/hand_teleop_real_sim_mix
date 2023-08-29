@@ -315,9 +315,11 @@ def generate_features(visual_baked, model, preprocess, backbone_type="ResNet34",
     
     for img in tqdm(raw_imgs):
       # img = torch.from_numpy(np.moveaxis(img,-1,0)[None, ...])
-      img = img.permute((2,0,1))[None, ...]
+      # channel to the first dimension
+      img = img.permute((2,0,1))
       if i != 0:
         img = augmentation_img(img,augmenter)
+      img = img[None, ...]
       img = preprocess(img)
       img = img.to(device)
       with torch.no_grad():
