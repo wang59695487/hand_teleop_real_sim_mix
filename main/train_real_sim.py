@@ -468,10 +468,9 @@ def train_real_sim(args):
                 train_inv=args['train_inv'])
             wandb.log(metrics)
         
-        agent.load(os.path.join(log_dir, "epoch_best.pt"))
-        agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
         if Prepared_Data['data_type'] != "real":
-
+            agent.load(os.path.join(log_dir, "epoch_best.pt"))
+            agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
             final_success = eval_in_env(args, agent, log_dir, "best", 10, 10)
             wandb.log({"final_success": final_success})
             print(f"Final success rate: {final_success:.4f}")
@@ -513,10 +512,10 @@ if __name__ == '__main__':
     args = {
         'dataset_folder': args.demo_folder,
          # 8192 16384 32678 65536
-        'real_batch_size': 32678,
-        'sim_batch_size': 65536,
-        'val_ratio': 0.1,
-        'bc_lr': 2e-5,
+        'real_batch_size': 16384,
+        'sim_batch_size': 32678,
+        'val_ratio': 0.05,
+        'bc_lr': 1e-5,
         'num_epochs': 2000,              
         'weight_decay': 1e-2,
         'model_name': '',
@@ -550,6 +549,7 @@ if __name__ == '__main__':
         'robot_name': 'xarm6_allegro_modified_finger',
         'use_visual_obs': True,
         'adapt': False,
+        'bc_beta': 0.99,
         "eval_freq": args.eval_freq,
         "eval_start_epoch": args.eval_start_epoch,
         "eval_only": args.eval_only,
