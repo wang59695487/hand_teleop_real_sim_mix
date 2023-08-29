@@ -276,7 +276,7 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
                         info_success = info["success"]
                 elif task_name == 'dclaw':
 
-                    info_success = info["is_object_rotated"] and info["object_total_rotate_angle"]>=360*3
+                    info_success = info["is_object_rotated"] and info["object_total_rotate_angle"]>=300
                 
                 success = success or info_success
                 if success:

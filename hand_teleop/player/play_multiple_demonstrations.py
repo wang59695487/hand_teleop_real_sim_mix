@@ -456,7 +456,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     target_qpos = np.concatenate([arm_qpos, hand_qpos])
                     env.step(target_qpos)
     else:
-        for idx in range(len(baked_data)):
+        for idx in range(len(baked_data['obs'])):
             # NOTE: robot.get_qpos() version
             if idx != len(baked_data['obs'])-1:
                 ee_pose_next = baked_data["ee_pose"][idx + 1]
