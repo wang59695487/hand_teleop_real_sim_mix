@@ -53,260 +53,28 @@ def evaluate(agent, validation_loader, L, epoch):
 
     return loss_val
 
+def compute_loss(agent, it_per_epoch, bc_train_dataloader, bc_validation_dataloader, L, epoch):
+    for _ in tqdm(range(it_per_epoch)):
+        data_batch = next(iter(bc_train_dataloader))
+        obs_batch = data_batch[0].to(device)
+        next_obs_batch = data_batch[1].to(device)
+        action_batch = data_batch[-2].to(device)
+        sim_real_label = data_batch[-1].to(device)
 
-def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
-    with open("{}/{}_meta_data.pickle".format(args["dataset_folder"], args["backbone_type"].replace("/", "")),'rb') as file:
-        meta_data = pickle.load(file)
-    # --Create Env and Robot-- #
-    robot_name = args["robot_name"]
-    # task_name = meta_data['task_name']
-    task_name = "pick_place"
-    if 'randomness_scale' in meta_data["env_kwargs"].keys():
-        randomness_scale = meta_data["env_kwargs"]['randomness_scale']
-    else:
-        randomness_scale = 1
-    rotation_reward_weight = 0
-    use_visual_obs = args['use_visual_obs']
-    if 'allegro' in robot_name:
-        if 'finger_control_params' in meta_data.keys():
-            finger_control_params = meta_data['finger_control_params']
-        if 'root_rotation_control_params' in meta_data.keys():
-            root_rotation_control_params = meta_data['root_rotation_control_params']
-        if 'root_translation_control_params' in meta_data.keys():
-            root_translation_control_params = meta_data['root_translation_control_params']
-        if 'robot_arm_control_params' in meta_data.keys():
-            robot_arm_control_params = meta_data['robot_arm_control_params']            
-
-    env_params = meta_data["env_kwargs"]
-    env_params['robot_name'] = robot_name
-    env_params['use_visual_obs'] = True
-    env_params['use_gui'] = False
-
-    # Specify rendering device if the computing device is given
-    if "CUDA_VISIBLE_DEVICES" in os.environ:
-        env_params["device"] = "cuda"
-
-    if robot_name == "mano":
-        env_params["zero_joint_pos"] = meta_data["zero_joint_pos"]
-
-    if 'init_obj_pos' in meta_data["env_kwargs"].keys():
-        print('Found initial object pose')
-        env_params['init_obj_pos'] = meta_data["env_kwargs"]['init_obj_pos']
-        object_pos = meta_data["env_kwargs"]['init_obj_pos']
-
-    if 'init_target_pos' in meta_data["env_kwargs"].keys():
-        print('Found initial target pose')
-        env_params['init_target_pos'] = meta_data["env_kwargs"]['init_target_pos']
-        target_pos = meta_data["env_kwargs"]['init_target_pos']
-
-    if task_name == 'pick_place':
-        env = PickPlaceRLEnv(**env_params)
-    elif task_name == 'dclaw':
-        env = DClawRLEnv(**env_params)
-    elif task_name == 'hammer':
-        env = HammerRLEnv(**env_params)
-    elif task_name == 'table_door':
-        env = TableDoorRLEnv(**env_params)
-    elif task_name == 'insert_object':
-        env = InsertObjectRLEnv(**env_params)
-    elif task_name == 'mug_flip':
-        env = MugFlipRLEnv(**env_params)
-    else:
-        raise NotImplementedError
-    env.seed(0)
-    env.reset()
-
-    if "free" in robot_name:
-        for joint in env.robot.get_active_joints():
-            name = joint.get_name()
-            if "x_joint" in name or "y_joint" in name or "z_joint" in name:
-                joint.set_drive_property(*(1 * root_translation_control_params), mode="acceleration")
-            elif "x_rotation_joint" in name or "y_rotation_joint" in name or "z_rotation_joint" in name:
-                joint.set_drive_property(*(1 * root_rotation_control_params), mode="acceleration")
-            else:
-                joint.set_drive_property(*(finger_control_params), mode="acceleration")
-        env.rl_step = env.simple_sim_step
-    elif "xarm" in robot_name:
-        arm_joint_names = [f"joint{i}" for i in range(1, 8)]
-        for joint in env.robot.get_active_joints():
-            name = joint.get_name()
-            if name in arm_joint_names:
-                joint.set_drive_property(*(1 * robot_arm_control_params), mode="force")
-            else:
-                joint.set_drive_property(*(1 * finger_control_params), mode="force")
-        env.rl_step = env.simple_sim_step
-
-    if args['use_visual_obs']:
-
-        real_camera_cfg = {
-            "relocate_view": dict( pose=lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(224, 224))
-        }
-        
-        if task_name == 'table_door':
-            camera_cfg = {
-            "relocate_view": dict(position=np.array([-0.25, -0.25, 0.55]), look_at_dir=np.array([0.25, 0.25, -0.45]),
-                                    right_dir=np.array([1, -1, 0]), fov=np.deg2rad(69.4), resolution=(224, 224))
-            }           
-        env.setup_camera_from_config(real_camera_cfg)
-
-        # Specify modality
-        empty_info = {}  # level empty dict for now, reserved for future
-        camera_info = {"relocate_view": {"rgb": empty_info, "segmentation": empty_info}}
-        env.setup_visual_obs_config(camera_info)
-
-    with open('{}/{}_dataset.pickle'.format(args["dataset_folder"], args["backbone_type"].replace("/", "")), 'rb') as file:
-        print('dataset_folder: {}'.format(args["dataset_folder"]))
-        dataset = pickle.load(file)
-        print(dataset.keys())
-        if 'state' in dataset.keys():
-            init_robot_qpos = dataset['state'][0][-7-env.robot.dof:-7]
-            state_shape = len(dataset['state'][0])
-            concatenated_obs_shape = None
-            # print('State shape: {}'.format(state_shape))
+        if len(data_batch) == 6:
+            state_batch = data_batch[2].to(device)
+            next_state_batch = data_batch[3].to(device)
         else:
-            init_robot_qpos = dataset['robot_qpos'][0][:env.robot.dof]
-            concatenated_obs_shape = len(dataset['obs'][0])
-            state_shape = None
-        action_shape = len(dataset['action'][0])
+            state_batch = None
+            next_state_batch = None
+            robot_qpos_batch = data_batch[2].to(device)
 
-    if concatenated_obs_shape != None:
-        feature_extractor, preprocess = generate_feature_extraction_model(backbone_type=args['backbone_type'])
-        feature_extractor = feature_extractor.to(device)
-        feature_extractor.eval()
+        if state_batch is not None:
+            loss = agent.compute_loss(obs=obs_batch, state=state_batch, next_obs=next_obs_batch, next_state=next_state_batch,  action=action_batch, L=L, step=epoch, concatenated_obs=None, concatenated_next_obs=None,sim_real_label=sim_real_label)
+        else:
+            loss = agent.compute_loss(concatenated_obs=obs_batch, concatenated_next_obs=next_obs_batch, action=action_batch, robot_qpos=robot_qpos_batch, sim_real_label=sim_real_label, L=L, step=epoch)
 
-    env.robot.set_qpos(init_robot_qpos)
-
-    eval_idx = 0
-    avg_success = 0
-    progress = tqdm(total=x_steps * y_steps)
-
-    # since in simulation, we always use simulated data, so sim_real_label is always 0
-    sim_real_label = [0]
-
-    for x in np.linspace(-0.08, 0.08, x_steps):        # -0.08 0.08 /// -0.05 0
-        for y in np.linspace(0.22, 0.28, y_steps):  # 0.12 0.18 /// 0.12 0.32
-            video = []
-            idx = np.random.randint(len(meta_data['init_obj_poses']))
-            sampled_pos = meta_data['init_obj_poses'][idx]
-            object_p = np.array([x, y, sampled_pos.p[-1]])
-            object_pos = sapien.Pose(p=object_p, q=sampled_pos.q)
-            print('Object Pos: {}'.format(object_pos))
-            env.reset()
-            if "free" in robot_name:
-                for joint in env.robot.get_active_joints():
-                    name = joint.get_name()
-                    if "x_joint" in name or "y_joint" in name or "z_joint" in name:
-                        joint.set_drive_property(*(1 * root_translation_control_params), mode="acceleration")
-                    elif "x_rotation_joint" in name or "y_rotation_joint" in name or "z_rotation_joint" in name:
-                        joint.set_drive_property(*(1 * root_rotation_control_params), mode="acceleration")
-                    else:
-                        joint.set_drive_property(*(finger_control_params), mode="acceleration")
-                env.rl_step = env.simple_sim_step
-            elif "xarm" in robot_name:
-                arm_joint_names = [f"joint{i}" for i in range(1, 8)]
-                for joint in env.robot.get_active_joints():
-                    name = joint.get_name()
-                    if name in arm_joint_names:
-                        joint.set_drive_property(*(1 * robot_arm_control_params), mode="force")
-                    else:
-                        joint.set_drive_property(*(1 * finger_control_params), mode="force")
-                env.rl_step = env.simple_sim_step                
-            env.robot.set_qpos(init_robot_qpos)
-            env.manipulated_object.set_pose(object_pos)
-            for _ in range(10*env.frame_skip):
-                env.scene.step()
-            obs = env.get_observation()
-            if args['use_visual_obs']:
-                features = []
-                robot_states = []
-                next_robot_states = []
-                rgb_imgs = []
-                next_rgb_imgs = []
-                stacked_robot_qpos = [] 
-            else:
-                oracle_obs = []
-            success = False
-            for i in range(1700):
-                video.append(obs["relocate_view-rgb"])
-                if concatenated_obs_shape != None:
-                    assert args['adapt'] == False
-                    if args['use_visual_obs']:
-                        features, robot_states, stacked_robot_qpos, obs, concatenate_robot_qpos = bc_dataset.get_stacked_data_from_obs(rgb_imgs=features, robot_states=robot_states, 
-                                                                                                                stacked_robot_qpos=stacked_robot_qpos, obs=obs, i=i, concatenate=True, 
-                                                                                                                   robot_qpos=np.concatenate([env.robot.get_qpos(),env.ee_link.get_pose().p,env.ee_link.get_pose().q]),
-                                                                                                                   feature_extractor=feature_extractor, preprocess=preprocess)
-                        obs = obs.reshape((1,-1))
-                        #####reshape concatenate_robot_qpos to 1dim##############
-                        concatenate_robot_qpos = concatenate_robot_qpos.reshape((1,-1))
-                    else:
-                        oracle_obs.append(obs)
-                        j = len(oracle_obs)-1
-                        if j==0:
-                            stacked_obs = np.concatenate((oracle_obs[j],oracle_obs[j],oracle_obs[j],oracle_obs[j]))    
-                        elif j==1:
-                            stacked_obs = np.concatenate((oracle_obs[j-1],oracle_obs[j],oracle_obs[j],oracle_obs[j]))
-                        elif j==2:
-                            stacked_obs = np.concatenate((oracle_obs[j-2],oracle_obs[j-1],oracle_obs[j],oracle_obs[j]))         
-                        else:
-                            stacked_obs = np.concatenate((oracle_obs[j-3],oracle_obs[j-2],oracle_obs[j-1],oracle_obs[j]))
-                        obs = torch.from_numpy(stacked_obs).to(device)
-                        obs = obs.reshape((1,-1))
-                # print('State shape: {}'.format(state_shape))
-                if state_shape != None:
-                    rgb_imgs, robot_states, stacked_imgs, stacked_states = bc_dataset.get_stacked_data_from_obs(rgb_imgs=rgb_imgs, robot_states=robot_states, obs=obs, i=i, concatenate=False)
-                
-                agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
-                if concatenated_obs_shape != None:
-                    action = agent.validate(concatenated_obs=obs, robot_qpos=concatenate_robot_qpos, sim_real_label=sim_real_label, mode='test')
-                else:
-                    action = agent.validate(obs=stacked_imgs, state=stacked_states,sim_real_label=sim_real_label, mode='test')
-                action = action.cpu().numpy()
-                # NOTE For new version, uncomment below!
-                real_action = apply_IK_get_real_action(action, env, env.robot.get_qpos(), use_visual_obs=use_visual_obs)
-
-                # next_obs, reward, done, _ = env.step(action)
-                # NOTE For new version, uncomment below!
-                next_obs, reward, done, info = env.step(real_action)
-                if epoch != "best":
-                    info_success = info["is_object_lifted"] and info["success"]
-                else:
-                    info_success = info["success"]
-                
-                success = success or info_success
-                if success:
-                    break
-                # TODO: Check how this new action should be used in PAD!
-                if args['adapt']:
-                    action = torch.from_numpy(action).to(device)
-                    next_rgb_imgs, next_robot_states, stacked_next_imgs, stacked_next_states = bc_dataset.get_stacked_data_from_obs(rgb_imgs=next_rgb_imgs, robot_states=next_robot_states, obs=next_obs, i=i, concatenate=False)
-                    agent.train(train_visual_encoder=True, train_state_encoder=True, train_policy=False, train_inv=True)
-                    agent.update_inv(h=stacked_imgs, s=stacked_states, next_h=stacked_next_imgs, next_s=stacked_next_states, action=action)
-
-                # env.render()
-
-                obs = deepcopy(next_obs)
-            
-            #If it did not lift the object, consider it as 0.25 success
-            if epoch != "best" and info["success"]:
-                avg_success += 0.25
-            avg_success += int(success)
-            video = (np.stack(video) * 255).astype(np.uint8)
-
-            #only save video if success or in the final_success evaluation
-            #if success or epoch == "best":
-            is_lifted = info["is_object_lifted"]
-            video_path = os.path.join(log_dir, f"epoch_{epoch}_{eval_idx}_{success}_{is_lifted}.mp4")
-            #imageio version 2.28.1 imageio-ffmpeg version 0.4.8 scikit-image version 0.20.0
-            imageio.mimsave(video_path, video, fps=120)
-            eval_idx += 1
-            progress.update()
-
-    avg_success /= eval_idx
-    progress.close()
-    
-    print("avg_success in epoch", epoch, ":", avg_success)
-    return avg_success
-
+    return loss
 
 def main(args):
     # read and prepare data 
@@ -411,8 +179,8 @@ def main(args):
 
             if (epoch + 1) % args["eval_freq"] == 0 and (epoch+1) >= args["eval_start_epoch"]:
                 #total_steps = x_steps * y_steps = 4 * 5 = 20
-                avg_success = eval_in_env(args, agent, log_dir, epoch + 1, 4, 5)
-                metrics["avg_success"] = avg_success
+                #avg_success = eval_in_env(args, agent, log_dir, epoch + 1, 4, 5)
+                #metrics["avg_success"] = avg_success
                 agent.save(os.path.join(log_dir, f"epoch_{epoch + 1}.pt"), args)
                 if avg_success > best_success:
                     agent.save(os.path.join(log_dir, f"epoch_best.pt"), args)
@@ -426,10 +194,10 @@ def main(args):
 
         agent.load(os.path.join(log_dir, "epoch_best.pt"))
         agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
-        final_success = eval_in_env(args, agent, log_dir, "best", 10, 10)
+        #final_success = eval_in_env(args, agent, log_dir, "best", 10, 10)
 
-        wandb.log({"final_success": final_success})
-        print(f"Final success rate: {final_success:.4f}")
+        # wandb.log({"final_success": final_success})
+        # print(f"Final success rate: {final_success:.4f}")
 
         wandb.finish()
     else:
