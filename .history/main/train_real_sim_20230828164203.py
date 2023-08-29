@@ -60,8 +60,8 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
         meta_data = pickle.load(file)
     # --Create Env and Robot-- #
     robot_name = args["robot_name"]
-    task_name = meta_data['task_name']
-
+    # task_name = meta_data['task_name']
+    task_name = "pick_place"
     if 'randomness_scale' in meta_data["env_kwargs"].keys():
         randomness_scale = meta_data["env_kwargs"]['randomness_scale']
     else:
