@@ -501,6 +501,7 @@ def parse_args():
     parser.add_argument("--eval-start-epoch", default=400, type=int)
     parser.add_argument("--eval-only", action="store_true")
     parser.add_argument("--ckpt", default=None, type=str)
+    parser.add_argument("--lr", default=2e-5, type=float)
     args = parser.parse_args()
 
     return args
@@ -513,9 +514,9 @@ if __name__ == '__main__':
         'dataset_folder': args.demo_folder,
          # 8192 16384 32678 65536
         'real_batch_size': 16384,
-        'sim_batch_size': 32678,
+        'sim_batch_size': 65536,
         'val_ratio': 0.05,
-        'bc_lr': 1e-5,
+        'bc_lr': args.lr,
         'num_epochs': 2000,              
         'weight_decay': 1e-2,
         'model_name': '',
