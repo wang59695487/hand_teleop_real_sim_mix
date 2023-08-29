@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 
 class BCNetwork(nn.Module):
-    def __init__(self, obs_dim, robot_qpos_dim, action_dim):
+    def __init__(self, obs_dim, robot_qpos_dim, action_dim, hidden_dim):
         super().__init__()
 
         # self.visual_network = nn.Sequential(
