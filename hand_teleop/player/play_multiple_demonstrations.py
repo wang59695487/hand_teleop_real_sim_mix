@@ -466,7 +466,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
             if idx < len(baked_data['obs'])-frame_skip:
                 ee_pose_next = baked_data["ee_pose"][idx + frame_skip]
                 ee_pose_delta = np.sqrt(np.sum((ee_pose_next[:3] - ee_pose[:3])**2))
-                hand_qpos = baked_data["teleop_cmd"][idx][env.arm_dof:]
+                hand_qpos = baked_data["action"][idx][env.arm_dof:]
         
                 delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
 
