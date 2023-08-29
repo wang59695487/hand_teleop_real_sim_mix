@@ -408,11 +408,11 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
         for idx in range(0,len(baked_data),frame_skip):
             # NOTE: robot.get_qpos() version
-            if idx != len(baked_data)-frame_skip:
-                ee_pose_next = np.array(baked_data[idx + 1]["ee_pose"])
+            if idx < len(baked_data)-frame_skip:
+                ee_pose_next = np.array(baked_data[idx + frame_skip]["ee_pose"])
                 ee_pose_delta = np.sqrt(np.sum((ee_pose_next[:3] - ee_pose[:3])**2))
-                hand_qpos = baked_data[idx+1]["teleop_cmd"][env.arm_dof:]
-
+                hand_qpos = baked_data[idx]["teleop_cmd"][env.arm_dof:]
+        
                 delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
 
                 if ee_pose_delta <= args['delta_ee_pose_bound'] and (average_angle_handqpos(delta_hand_qpos))/np.pi*180 <= 1:
@@ -463,12 +463,13 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
     else:
         for idx in range(0,len(baked_data['obs']),frame_skip):
             # NOTE: robot.get_qpos() version
-            if idx != len(baked_data['obs'])-frame_skip:
-                ee_pose_next = baked_data["ee_pose"][idx + 1]
+            if idx < len(baked_data['obs'])-frame_skip:
+                ee_pose_next = baked_data["ee_pose"][idx + frame_skip]
                 ee_pose_delta = np.sqrt(np.sum((ee_pose_next[:3] - ee_pose[:3])**2))
-                hand_qpos = baked_data["action"][idx][env.arm_dof:]
-                delta_hand_qpos = hand_qpos - hand_qpos_prev
-                #if ee_pose_delta > 0.0005 and (average_angle_handqpos(hand_qpos))/np.pi*180 >= 1:
+                hand_qpos = baked_data[idx]["teleop_cmd"][env.arm_dof:]
+        
+                delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
+
                 if ee_pose_delta <= args['delta_ee_pose_bound'] and (average_angle_handqpos(delta_hand_qpos))/np.pi*180 <= 1:
                     continue
                 else:
