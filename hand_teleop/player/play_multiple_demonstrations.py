@@ -133,7 +133,7 @@ def play_multiple_real_visual(args):
         dataset_path = "{}/{}_dataset.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
         with open(dataset_path,'wb') as file:
             pickle.dump(visual_training_set, file)
-    print('dataset is saved in the folder: ./sim/baked_data/{}'.format(dataset_folder))
+    print('dataset is saved in the folder: {}'.format(dataset_folder))
     meta_data_path = "{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
     meta_data['init_obj_poses'] = init_obj_poses
     with open(meta_data_path,'wb') as file:
