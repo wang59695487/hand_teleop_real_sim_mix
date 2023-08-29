@@ -510,6 +510,8 @@ def parse_args():
     parser.add_argument("--ckpt", default=None, type=str)
     parser.add_argument("--lr", default=2e-5, type=float)
     parser.add_argument("--num-epochs", default=2000, type=int)
+    parser.add_argument("--real-batch-size", default=32678, type=int)
+    parser.add_argument("--sim-batch-size", default=32678, type=int)
     
     args = parser.parse_args()
 
@@ -521,9 +523,8 @@ if __name__ == '__main__':
 
     args = {
         'dataset_folder': args.demo_folder,
-         # 8192 16384 32678 65536
-        'real_batch_size': 50000,
-        'sim_batch_size': 50000,
+        'real_batch_size': args.real_batch_size,
+        'sim_batch_size': args.sim_batch_size,
         'val_ratio': 0.1,
         'bc_lr': args.lr,
         'num_epochs': args.num_epochs,              
