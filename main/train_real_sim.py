@@ -315,52 +315,71 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
     print("avg_success in epoch", epoch, ":", avg_success)
     return avg_success
 
-def agent_update(agent, it_per_epoch, bc_train_dataloader, L, epoch, sim_real_ratio):
-    loss_train = 0
-    for _ in tqdm(range(it_per_epoch)):
-        data_batch = next(iter(bc_train_dataloader))
-        obs_batch = data_batch[0].to(device)
-        next_obs_batch = data_batch[1].to(device)
-        action_batch = data_batch[-2].to(device)
-        sim_real_label = data_batch[-1].to(device)
+################## compute loss in one iteration #######################
+def compute_loss(agent, bc_train_dataloader, L, epoch):
 
-        if len(data_batch) == 6:
-            state_batch = data_batch[2].to(device)
-            next_state_batch = data_batch[3].to(device)
-        else:
-            state_batch = None
-            next_state_batch = None
-            robot_qpos_batch = data_batch[2].to(device)
+    data_batch = next(iter(bc_train_dataloader))
+    obs_batch = data_batch[0].to(device)
+    next_obs_batch = data_batch[1].to(device)
+    action_batch = data_batch[-2].to(device)
+    sim_real_label = data_batch[-1].to(device)
 
-        if state_batch is not None:
-            loss = agent.update_policy(obs=obs_batch, state=state_batch, next_obs=next_obs_batch, next_state=next_state_batch,  action=action_batch, L=L, step=epoch, concatenated_obs=None, concatenated_next_obs=None,sim_real_label=sim_real_label)
-        else:
-            loss = agent.update_policy(concatenated_obs=obs_batch, concatenated_next_obs=next_obs_batch, action=action_batch, robot_qpos=robot_qpos_batch, sim_real_label=sim_real_label, L=L, step=epoch, sim_real_ratio=sim_real_ratio)
+    if len(data_batch) == 6:
+        state_batch = data_batch[2].to(device)
+        next_state_batch = data_batch[3].to(device)
+    else:
+        state_batch = None
+        next_state_batch = None
+        robot_qpos_batch = data_batch[2].to(device)
 
-        loss_train += loss
+    if state_batch is not None:
+        loss = agent.compute_loss(obs=obs_batch, state=state_batch, next_obs=next_obs_batch, next_state=next_state_batch,  action=action_batch, L=L, step=epoch, concatenated_obs=None, concatenated_next_obs=None,sim_real_label=sim_real_label)
+    else:
+        loss = agent.compute_loss(concatenated_obs=obs_batch, concatenated_next_obs=next_obs_batch, action=action_batch, robot_qpos=robot_qpos_batch, sim_real_label=sim_real_label, L=L, step=epoch)
 
-    return loss_train/it_per_epoch
+    return loss
 
 def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_epoch_sim, bc_train_dataloader_real, bc_validation_dataloader_real, bc_train_dataloader_sim, bc_validation_dataloader_sim, L, epoch):
-
-    loss_train_real = agent_update(agent,it_per_epoch_real,bc_train_dataloader_real,L,epoch,sim_real_ratio)
-    loss_train_sim = agent_update(agent,it_per_epoch_sim,bc_train_dataloader_sim,L,epoch,1)
     
+    loss_train_real = 0
+    loss_train_sim = 0
+    
+    ######### assert sim data is bigger than real one #########
+    assert it_per_epoch_sim >= it_per_epoch_real
+    for it in tqdm(range(it_per_epoch_sim)):
+
+        loss_real = compute_loss(agent,bc_train_dataloader_real,L,epoch)
+        loss_sim = compute_loss(agent,bc_train_dataloader_sim,L,epoch)
+
+        #bc_loss = sim_real_ratio*loss_real + loss_sim
+        #if sim batch_size == real batch size, we don't need bc_loss here
+        bc_loss = loss_real + loss_sim
+        agent.update(bc_loss, L, epoch)
+
+        loss_train_real += loss_real.detach().cpu().item()
+        loss_train_sim += loss_sim.detach().cpu().item()
+
     agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
 
     loss_val_real = evaluate(agent, bc_validation_dataloader_real, L, epoch)
     loss_val_sim = evaluate(agent, bc_validation_dataloader_sim, L, epoch)
 
-    return loss_train_real,loss_train_sim,loss_val_real,loss_val_sim
+    return loss_train_real/it_per_epoch_sim,loss_train_sim/it_per_epoch_sim,loss_val_real,loss_val_sim
 
 def train_in_one_epoch(agent, it_per_epoch, bc_train_dataloader, bc_validation_dataloader, L, epoch):
     
-    loss_train = agent_update(agent,it_per_epoch,bc_train_dataloader,L,epoch,1)
+    loss_train = 0
+    for it in tqdm(range(it_per_epoch)):
+
+        bc_loss = compute_loss(agent,bc_train_dataloader,L,epoch)
+        loss = agent.update(bc_loss, L, epoch)
+        loss_train += loss
+
     agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
 
     loss_val = evaluate(agent, bc_validation_dataloader, L, epoch)
 
-    return loss_train,loss_val
+    return loss_train/it_per_epoch, loss_val
 
 def train_real_sim(args):
     # read and prepare data
@@ -431,7 +450,8 @@ def train_real_sim(args):
 
             else:
 
-                loss_train, loss_val = train_in_one_epoch(agent, Prepared_Data['it_per_epoch'], Prepared_Data['bc_train_dataloader'], Prepared_Data['bc_validation_dataloader'], L, epoch)
+                loss_train, loss_val = train_in_one_epoch(agent, Prepared_Data['it_per_epoch'], Prepared_Data['bc_train_dataloader'], 
+                                                          Prepared_Data['bc_validation_dataloader'], L, epoch)
                 metrics = {
                     "loss/train": loss_train,
                     "loss/val": loss_val,
@@ -502,8 +522,8 @@ if __name__ == '__main__':
     args = {
         'dataset_folder': args.demo_folder,
          # 8192 16384 32678 65536
-        'real_batch_size': 16384,
-        'sim_batch_size': 32678,
+        'real_batch_size': 50000,
+        'sim_batch_size': 50000,
         'val_ratio': 0.1,
         'bc_lr': args.lr,
         'num_epochs': args.num_epochs,              
