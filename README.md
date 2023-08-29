@@ -19,14 +19,12 @@ python hand_teleop/player/play_multiple_demonstrations_aug.py --backbone-type=re
 
 nohup python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --delta-ee-pose-bound=0.0005 --sim-folder=/sim/raw_data/xarm/less_random/pick_place_mustard_bottle --real-folder=real/raw_data/pick_place_mustard_bottle --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle_image_aug > ./logs/play_demo 2>&1 &
 
-nohup python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --delta-ee-pose-bound=0.0005 --real-folder=./real/raw_data/pick_place_mustard_bottle --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle_image_aug > ./logs/play_demo 2>&1 &
+nohup python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/pick_place_mustard_bottle --sim-folder=sim/raw_data/pick_place_mustard_bottle --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle_image_aug --task-name=pick_place --object-name=mustard_bottle > ./logs/play_demo 2>&1 &
 
 
-python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --delta-ee-pose-bound=0.0005 --out-folder=real_sim_mix/baked_data/dclaw_image_aug_only
+python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/pick_place_mustard_bottle --out-folder=real/baked_data/pick_place_mustard_bottle --task-name=pick_place --object-name=mustard_bottle --frame-skip=4 --delta-ee-pose-bound=0.0025
 
-python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --delta-ee-pose-bound=0.0005 --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle_aug_img_only
-
-python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/pick_place_mustard_bottle --sim-folder=sim/raw_data/pick_place_mustard_bottle --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle --task-name=pick_place --object-name=mustard_bottle
+python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/pick_place_mustard_bottle --sim-folder=sim/raw_data/pick_place_mustard_bottle --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle --task-name=pick_place --object-name=mustard_bottle --frame-skip=4 --delta-ee-pose-bound=0.0025
 
 ```
 Currently, these following backbones are supported:
@@ -43,47 +41,28 @@ Currently, these following backbones are supported:
 
 ## Training and evaluation
 ```bash
-python main/train.py \
-    --demo-folder=sim/baked_data/xarm_less_random_pick_place_mustard_bottle \
-    --backbone-type=resnet50 \
-    --eval-freq=200
-```
-
-python main/train.py \
-    --demo-folder=sim/baked_data/xarm_less_random_pick_place_mustard_bottle \
-    --backbone-type=MoCo50 \
-    --eval-freq=100
-
-python main/train.py \
-    --demo-folder=sim/baked_data/xarm_less_random_pick_place_mustard_bottle \
-    --backbone-type=regnet_y_1_6gf \
-    --eval-freq=100
-
-python main/train.py \
-    --demo-folder=sim/baked_data/xarm_less_random_pick_place_mustard_bottle \
-    --backbone-type=regnet_y_3_2gf \
-    --eval-freq=100
-
-python main/train.py \
-    --demo-folder=sim/baked_data/xarm_less_random_pick_place_mustard_bottle \
-    --backbone-type=regnet_y_8gf \
-    --eval-freq=100
-
-python main/train.py \
-    --demo-folder=sim/baked_data/xarm_less_random_pick_place_mustard_bottle \
-    --backbone-type=vit_b_32 \
-    --eval-only \
-    --ckpt=logs/Best_models/epoch_1100.pt
-
-python main/train.py \
-    --demo-folder=real/baked_data/pick_place_mustard_bottle\
-    --backbone-type=regnet_y_3_2gf\
-    --eval-freq=100 
 
 nohup python main/train_real_sim.py \
-    --demo-folder=real_sim_mix/baked_data/pick_place_mustard_bottle_aug_img_only \
+    --demo-folder=real_sim_mix/baked_data/pick_place_mustard_bottle_image_aug \
     --backbone-type=regnet_y_3_2gf\
-    --eval-freq=100 > ./logs 2>&1 &
+    --eval-freq=100 > ./logs/train_real_sim 2>&1 &
+
+python main/train_real_sim.py \
+    --demo-folder=real_sim_mix/baked_data/pick_place_mustard_bottle \
+    --backbone-type=regnet_y_3_2gf \
+    --lr=2e-5 \
+    --num-epochs=2000 \
+    --eval-freq=100 \
+    --eval-start-epoch=700
+   
+
+python main/train_real_sim.py \
+    --demo-folder=real/baked_data/pick_place_mustard_bottle\
+    --backbone-type=regnet_y_3_2gf \
+    --lr=2e-5 \
+    --num-epochs=4000 \
+    --eval-freq=100 \
+    --eval-start-epoch=100
 
 
 The `eval-freq` argument specifies the frequency of evaluating and saving the model. which is 200 epochs in this case.
