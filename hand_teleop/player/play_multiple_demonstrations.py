@@ -589,7 +589,7 @@ def stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_fo
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--backbone-type", required=True)
-    parser.add_argument("--delta-ee-pose-bound", default="0.0005", type=float)
+    parser.add_argument("--delta-ee-pose-bound", default="0.0025", type=float)
     parser.add_argument("--img-data-aug", default="5", type=int)
     parser.add_argument("--sim-folder", default=None)
     parser.add_argument("--real-folder", default=None)

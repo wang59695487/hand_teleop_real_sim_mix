@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 
 class BCNetwork(nn.Module):
-    def __init__(self, obs_dim, robot_qpos_dim, action_dim, hidden_dim):
+    def __init__(self, obs_dim, robot_qpos_dim, action_dim):
         super().__init__()
 
         # self.visual_network = nn.Sequential(
@@ -17,7 +17,6 @@ class BCNetwork(nn.Module):
         #     nn.Dropout(0.1)
         # )
         dropout = 0.1
-        mid_channels = 1024
 
         #self.chin = obs_dim+robot_qpos_dim
 
@@ -26,20 +25,20 @@ class BCNetwork(nn.Module):
         self.sim_bn0 = nn.BatchNorm1d(int(obs_dim/2))
         #self.drop0 = nn.Dropout(dropout)
 
-        self.l1 = nn.Linear(int(obs_dim/2), int(obs_dim/4))
-        self.real_bn1 = nn.BatchNorm1d(int(obs_dim/4))
-        self.sim_bn1 = nn.BatchNorm1d(int(obs_dim/4))
+        # self.l1 = nn.Linear(int(obs_dim/2), int(obs_dim/4))
+        # self.real_bn1 = nn.BatchNorm1d(int(obs_dim/4))
+        # self.sim_bn1 = nn.BatchNorm1d(int(obs_dim/4))
         #self.drop1 = nn.Dropout(dropout)
 
         # self.l2 = nn.Linear(int(obs_dim/4), int(obs_dim/2))
         # self.real_bn2 = nn.BatchNorm1d(int(obs_dim/2))
         # self.sim_bn2 = nn.BatchNorm1d(int(obs_dim/2))
 
-        #self.vis_out = nn.Linear(int(obs_dim/2), obs_dim)
-        self.vis_out = nn.Linear(int(obs_dim/4), int(obs_dim/2))
+        self.vis_out = nn.Linear(int(obs_dim/2), int(obs_dim/4))
+        #self.vis_out = nn.Linear(int(obs_dim/4), int(obs_dim/2))
         self.vis_drop = nn.Dropout(dropout)
         
-        self.chin = int(obs_dim/2)+robot_qpos_dim
+        self.chin = int(obs_dim/4)+robot_qpos_dim
         self.l3 = nn.Linear(self.chin, int(self.chin/2))
         self.bn3 = nn.BatchNorm1d(int(self.chin/2))
         self.real_bn3 = nn.BatchNorm1d(int(self.chin/2))
@@ -52,15 +51,15 @@ class BCNetwork(nn.Module):
         self.sim_bn4 = nn.BatchNorm1d(int(self.chin/4))
         #self.drop3 = nn.Dropout(dropout)
 
-        self.l5 = nn.Linear(int(self.chin/4), int(self.chin/8))
-        self.bn5 = nn.BatchNorm1d(int(self.chin/8))
-        self.real_bn5 = nn.BatchNorm1d(int(self.chin/8))
-        self.sim_bn5 = nn.BatchNorm1d(int(self.chin/8))
+        # self.l5 = nn.Linear(int(self.chin/4), int(self.chin/8))
+        # self.bn5 = nn.BatchNorm1d(int(self.chin/8))
+        # self.real_bn5 = nn.BatchNorm1d(int(self.chin/8))
+        # self.sim_bn5 = nn.BatchNorm1d(int(self.chin/8))
 
-        self.l6 = nn.Linear(int(self.chin/8), int(self.chin/4))
-        self.bn6 = nn.BatchNorm1d(int(self.chin/4))
-        self.real_bn6 = nn.BatchNorm1d(int(self.chin/4))
-        self.sim_bn6 = nn.BatchNorm1d(int(self.chin/4))
+        # self.l6 = nn.Linear(int(self.chin/8), int(self.chin/4))
+        # self.bn6 = nn.BatchNorm1d(int(self.chin/4))
+        # self.real_bn6 = nn.BatchNorm1d(int(self.chin/4))
+        # self.sim_bn6 = nn.BatchNorm1d(int(self.chin/4))
 
         self.l7 = nn.Linear(int(self.chin/4), action_dim)
         self.pn_drop = nn.Dropout(dropout)
@@ -116,13 +115,13 @@ class BCNetwork(nn.Module):
             #x = self.drop0(torch.relu(self.real_bn0(self.l0(concatenated_obs))))
             #x = self.drop1(torch.relu(self.real_bn1(self.l1(x))))
             x = torch.relu(self.real_bn0(self.l0(concatenated_obs)))
-            x = torch.relu(self.real_bn1(self.l1(x)))
+            # x = torch.relu(self.real_bn1(self.l1(x)))
             #x = torch.relu(self.real_bn2(self.l2(x)))
             x = torch.cat([self.vis_drop(self.vis_out(x)),robot_qpos], dim = 1)
             x = torch.relu(self.real_bn3(self.l3(x)))
             x = torch.relu(self.real_bn4(self.l4(x)))
-            x = torch.relu(self.real_bn5(self.l5(x)))
-            x = torch.relu(self.real_bn6(self.l6(x)))
+            # x = torch.relu(self.real_bn5(self.l5(x)))
+            # x = torch.relu(self.real_bn6(self.l6(x)))
             # x = self.drop2(torch.relu(self.bn2(self.l2(x))))   
             # x = self.drop3(torch.relu(self.bn3(self.l3(x))))  
             # x = self.drop2(torch.relu(self.real_bn2(self.l2(x))))   
@@ -132,14 +131,14 @@ class BCNetwork(nn.Module):
             # x = self.drop0(torch.relu(self.sim_bn0(self.l0(concatenated_obs))))
             # x = self.drop1(torch.relu(self.sim_bn1(self.l1(x))))
             x = torch.relu(self.sim_bn0(self.l0(concatenated_obs)))
-            x = torch.relu(self.sim_bn1(self.l1(x)))
+            # x = torch.relu(self.sim_bn1(self.l1(x)))
             #x = torch.relu(self.sim_bn2(self.l2(x)))
             x = torch.cat([self.vis_drop(self.vis_out(x)),robot_qpos], dim = 1)
             # x = torch.cat([self.vis_out(x),robot_qpos], dim = 1)
             x = torch.relu(self.sim_bn3(self.l3(x)))
             x = torch.relu(self.sim_bn4(self.l4(x)))
-            x = torch.relu(self.sim_bn5(self.l5(x)))
-            x = torch.relu(self.sim_bn6(self.l6(x)))
+            # x = torch.relu(self.sim_bn5(self.l5(x)))
+            # x = torch.relu(self.sim_bn6(self.l6(x)))
             #x = self.pn_drop(torch.relu(self.l6(x)))
             # x = self.drop2(torch.relu(self.bn2(self.l2(x))))   
             # x = self.drop3(torch.relu(self.bn3(self.l3(x))))  
@@ -154,8 +153,8 @@ class BCNetwork(nn.Module):
             # x = torch.cat([self.vis_out(x),robot_qpos], dim = 1)
             x = self.pn_drop(torch.relu(self.l3(x)))
             x = self.pn_drop(torch.relu(self.l4(x)))
-            x = self.pn_drop(torch.relu(self.l5(x)))
-            x = torch.relu(self.bn6(self.l6(x)))
+            # x = self.pn_drop(torch.relu(self.l5(x)))
+            # x = torch.relu(self.bn6(self.l6(x)))
             action = self.l7(self.pn_drop(x))
        
         return action
