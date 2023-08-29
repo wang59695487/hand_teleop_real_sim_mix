@@ -411,7 +411,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
                 delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
 
-                if ee_pose_delta < 0.0005 and average_angle_handqpos(delta_hand_qpos)*np.pi/180<= 1:
+                if ee_pose_delta <= args['delta_ee_pose_bound'] and (average_angle_handqpos(delta_hand_qpos))/np.pi*180 <= 1:
                     continue
                 else:
 
