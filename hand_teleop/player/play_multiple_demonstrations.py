@@ -49,7 +49,8 @@ def play_multiple_sim_visual(args):
         print(file_name)
         with open(file_name, 'rb') as file:
             demo = pickle.load(file)
-            visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], retarget=args['retarget'])
+            visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'], 
+                                                                    randomization_prob=args['randomization_prob'], retarget=args['retarget'],frame_skip=args['frame_skip'])
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
         visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
@@ -111,7 +112,7 @@ def play_multiple_real_visual(args):
 
             visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, real_demo=real_demo, real_images=image_file, robot_name=args['robot_name'], 
                                                                     domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], 
-                                                                    retarget=args['retarget'],using_real_data=True)
+                                                                    retarget=args['retarget'],using_real_data=True, frame_skip=args['frame_skip'])
             
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
@@ -172,7 +173,7 @@ def play_multiple_sim_real_visual(args):
             demo = np.load(path, allow_pickle=True)
             visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, real_demo=real_demo, real_images=image_file, robot_name=args['robot_name'], 
                                                                     domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], 
-                                                                    retarget=args['retarget'],using_real_data=True)
+                                                                    retarget=args['retarget'],using_real_data=True, frame_skip=args['frame_skip'])
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
             visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model = model, preprocess = preprocess)
@@ -189,7 +190,8 @@ def play_multiple_sim_real_visual(args):
         print(file_name)
         with open(file_name, 'rb') as file:
             demo = pickle.load(file)
-            visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], retarget=args['retarget'])
+            visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'], 
+                                                                        randomization_prob=args['randomization_prob'], retarget=args['retarget'],frame_skip=args['frame_skip'])
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
             visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
@@ -231,7 +233,7 @@ def average_angle_handqpos(hand_qpos):
     return np.mean(delta_angles)
 
 def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, randomization_prob, 
-                               retarget=False, real_demo=None, real_images=None, using_real_data = False):
+                               retarget=False, real_demo=None, real_images=None, using_real_data=False, frame_skip=4):
     if robot_name == 'mano':
         assert retarget == False
     # Get env params
@@ -376,8 +378,10 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
     
     env.reset()
     player.scene.unpack(player.get_sim_data(0))
+
     for _ in range(player.env.frame_skip):
         player.scene.step()
+
     if player.human_robot_hand is not None:
         player.scene.remove_articulation(player.human_robot_hand.robot)
 
@@ -401,10 +405,10 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
         hand_qpos_prev = baked_data["action"][0][env.arm_dof:]
 
     if using_real_data:
-        for idx in range(len(baked_data)):
-            
+
+        for idx in range(0,len(baked_data),frame_skip):
             # NOTE: robot.get_qpos() version
-            if idx != len(baked_data)-1:
+            if idx != len(baked_data)-frame_skip:
                 ee_pose_next = np.array(baked_data[idx + 1]["ee_pose"])
                 ee_pose_delta = np.sqrt(np.sum((ee_pose_next[:3] - ee_pose[:3])**2))
                 hand_qpos = baked_data[idx+1]["teleop_cmd"][env.arm_dof:]
@@ -413,6 +417,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
                 if ee_pose_delta <= args['delta_ee_pose_bound'] and (average_angle_handqpos(delta_hand_qpos))/np.pi*180 <= 1:
                     continue
+
                 else:
 
                     ee_pose = ee_pose_next
@@ -456,9 +461,9 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     target_qpos = np.concatenate([arm_qpos, hand_qpos])
                     env.step(target_qpos)
     else:
-        for idx in range(len(baked_data['obs'])):
+        for idx in range(0,len(baked_data['obs']),frame_skip):
             # NOTE: robot.get_qpos() version
-            if idx != len(baked_data['obs'])-1:
+            if idx != len(baked_data['obs'])-frame_skip:
                 ee_pose_next = baked_data["ee_pose"][idx + 1]
                 ee_pose_delta = np.sqrt(np.sum((ee_pose_next[:3] - ee_pose[:3])**2))
                 hand_qpos = baked_data["action"][idx][env.arm_dof:]
@@ -590,6 +595,7 @@ def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--backbone-type", required=True)
     parser.add_argument("--delta-ee-pose-bound", default="0.0025", type=float)
+    parser.add_argument("--frame-skip", default="4", type=int)
     parser.add_argument("--img-data-aug", default="5", type=int)
     parser.add_argument("--sim-folder", default=None)
     parser.add_argument("--real-folder", default=None)
@@ -622,6 +628,7 @@ if __name__ == '__main__':
         'num_data_aug': args.img_data_aug,
         'image_augmenter': T.AugMix(),
         'delta_ee_pose_bound': args.delta_ee_pose_bound,
+        'frame_skip': args.frame_skip,
         'out_folder': args.out_folder
     }
 
