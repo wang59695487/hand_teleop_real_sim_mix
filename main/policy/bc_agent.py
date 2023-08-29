@@ -220,7 +220,7 @@ class BCSSAgent(object):
             assert self.inv == None
 
         pred_action = self.bc_policy_network(concatenated_obs, robot_qpos, sim_real_label)
-        bc_loss = F.mse_loss(pred_action, action, reduction='sum')
+        bc_loss = F.mse_loss(pred_action, action)
 
         return bc_loss
 

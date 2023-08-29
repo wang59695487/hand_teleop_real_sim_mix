@@ -193,8 +193,9 @@ def get_stacked_data_from_obs(rgb_imgs, stacked_robot_qpos, robot_qpos, robot_st
         assert preprocess != None
         robot_state = obs["state"]
         img = obs["relocate_view-rgb"]
-        img = torch.from_numpy(np.moveaxis(img,-1,0)[None, ...])
+        img = img.permute((2,0,1))
         img = preprocess(img)
+        img = img[None, ...]
         img = img.to(device)
         with torch.no_grad():
             feature = feature_extractor(img)

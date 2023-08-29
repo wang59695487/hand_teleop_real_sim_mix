@@ -228,7 +228,7 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
                 oracle_obs = []
             success = False
             for i in range(1700):
-                video.append(obs["relocate_view-rgb"])
+                video.append(obs["relocate_view-rgb"].cpu().detach().numpy())
                 if concatenated_obs_shape != None:
                     assert args['adapt'] == False
                     if args['use_visual_obs']:
@@ -304,7 +304,6 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
             
             avg_success += int(success)
             video = (np.stack(video) * 255).astype(np.uint8)
-
             #imageio version 2.28.1 imageio-ffmpeg version 0.4.8 scikit-image version 0.20.0
             imageio.mimsave(video_path, video, fps=120)
             eval_idx += 1
@@ -316,7 +315,7 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
     print("avg_success in epoch", epoch, ":", avg_success)
     return avg_success
 
-def compute_loss(agent, it_per_epoch, bc_train_dataloader, L, epoch):
+def agent_update(agent, it_per_epoch, bc_train_dataloader, L, epoch, sim_real_ratio):
     loss_train = 0
     for _ in tqdm(range(it_per_epoch)):
         data_batch = next(iter(bc_train_dataloader))
@@ -338,25 +337,23 @@ def compute_loss(agent, it_per_epoch, bc_train_dataloader, L, epoch):
         else:
             loss = agent.compute_loss(concatenated_obs=obs_batch, concatenated_next_obs=next_obs_batch, action=action_batch, robot_qpos=robot_qpos_batch, sim_real_label=sim_real_label, L=L, step=epoch)
         
+        agent.update(loss*sim_real_ratio, L, epoch)
+
         loss_train += loss
 
-    return loss
+    return loss_train
 
 def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_epoch_sim, bc_train_dataloader_real, bc_validation_dataloader_real, bc_train_dataloader_sim, bc_validation_dataloader_sim, L, epoch):
 
-    loss_real = compute_loss(agent,it_per_epoch_real,bc_train_dataloader_real,L,epoch)
-    loss_train_real = loss_real.detach().cpu().item()
+    loss_real = agent_update(agent,it_per_epoch_real,bc_train_dataloader_real,L,epoch,sim_real_ratio)
+    loss_sim = agent_update(agent,it_per_epoch_sim,bc_train_dataloader_sim,L,epoch,1)
     
-    loss_sim = compute_loss(agent,it_per_epoch_sim,bc_train_dataloader_sim,L,epoch)
-    loss_train_sim = loss_sim.detach().cpu().item()
+    agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
 
+    loss_train_real = loss_real.detach().cpu().item()
+    loss_train_sim = loss_sim.detach().cpu().item()
     loss_train_real /= it_per_epoch_real
     loss_train_sim /= it_per_epoch_sim
-
-    loss_total = loss_real*sim_real_ratio + loss_sim
-    
-    agent.update(loss_total, L, epoch)
-    agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
 
     loss_val_real = evaluate(agent, bc_validation_dataloader_real, L, epoch)
     loss_val_sim = evaluate(agent, bc_validation_dataloader_sim, L, epoch)
@@ -365,13 +362,12 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
 
 def train_in_one_epoch(agent, it_per_epoch, bc_train_dataloader, bc_validation_dataloader, L, epoch):
     
-    loss = compute_loss(agent,it_per_epoch,bc_train_dataloader,L,epoch)
-
-    agent.update(loss, L, epoch)
+    loss = agent_update(agent,it_per_epoch,bc_train_dataloader,L,epoch,1)
     agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
 
     loss_val = evaluate(agent, bc_validation_dataloader, L, epoch)
     loss_train = loss.detach().cpu().item()
+    loss_train /= it_per_epoch
 
     return loss_train,loss_val
 
@@ -502,6 +498,8 @@ def parse_args():
     parser.add_argument("--eval-only", action="store_true")
     parser.add_argument("--ckpt", default=None, type=str)
     parser.add_argument("--lr", default=2e-5, type=float)
+    parser.add_argument("--num-epochs", default=2000, type=int)
+    
     args = parser.parse_args()
 
     return args
@@ -515,9 +513,9 @@ if __name__ == '__main__':
          # 8192 16384 32678 65536
         'real_batch_size': 16384,
         'sim_batch_size': 65536,
-        'val_ratio': 0.05,
+        'val_ratio': 0.1,
         'bc_lr': args.lr,
-        'num_epochs': 2000,              
+        'num_epochs': args.num_epochs,              
         'weight_decay': 1e-2,
         'model_name': '',
         'resume': False,

@@ -319,8 +319,8 @@ def generate_features(visual_baked, model, preprocess, backbone_type="ResNet34",
       img = img.permute((2,0,1))
       if i != 0:
         img = augmentation_img(img,augmenter)
-      img = img[None, ...]
       img = preprocess(img)
+      img = img[None, ...]
       img = img.to(device)
       with torch.no_grad():
           feature = model(img)
