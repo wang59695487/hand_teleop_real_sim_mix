@@ -42,6 +42,7 @@ Currently, these following backbones are supported:
 ## Training and evaluation
 ```bash
 
+# 16384 32768 65536
 nohup python main/train_real_sim.py \
     --demo-folder=real_sim_mix/baked_data/pick_place_mustard_bottle_image_aug \
     --backbone-type=regnet_y_3_2gf\
@@ -51,8 +52,8 @@ nohup python main/train_real_sim.py \
     --demo-folder=real_sim_mix/baked_data/pick_place_mustard_bottle \
     --backbone-type=regnet_y_3_2gf \
     --lr=2e-5 \
-    --sim-batch-size=32678 \
-    --real-batch-size=32678 \
+    --sim-batch-size=32768 \
+    --real-batch-size=32768 \
     --num-epochs=2000 \
     --eval-freq=100 \
     --eval-start-epoch=600 > ./logs/train_real_sim 2>&1 &
@@ -61,8 +62,8 @@ nohup python main/train_real_sim.py \
 python main/train_real_sim.py \
     --demo-folder=real/baked_data/pick_place_mustard_bottle\
     --backbone-type=regnet_y_3_2gf \
-    --lr=2e-5 \
-    --real-batch-size=58000 \
+    --lr=3e-5 \
+    --real-batch-size=65536 \
     --num-epochs=3000 \
     --eval-freq=100 \
     --eval-start-epoch=100
