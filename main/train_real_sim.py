@@ -343,20 +343,21 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
     
     loss_train_real = 0
     loss_train_sim = 0
-    
-    ######### assert sim data is bigger than real one #########
-    assert it_per_epoch_sim >= it_per_epoch_real
-    for it in tqdm(range(it_per_epoch_sim)):
 
+    for _ in tqdm(range(it_per_epoch_sim)):
         loss_real = compute_loss(agent,bc_train_dataloader_real,L,epoch)
-        loss_sim = compute_loss(agent,bc_train_dataloader_sim,L,epoch)
-
         #bc_loss = sim_real_ratio*loss_real + loss_sim
         #if sim batch_size == real batch size, we don't need bc_loss here
-        bc_loss = loss_real + loss_sim
-        agent.update(bc_loss, L, epoch)
-
+        #bc_loss = loss_real + loss_sim
+        agent.update(loss_real*sim_real_ratio, L, epoch)
         loss_train_real += loss_real.detach().cpu().item()
+     
+    for _ in tqdm(range(it_per_epoch_sim)):
+        loss_sim = compute_loss(agent,bc_train_dataloader_sim,L,epoch)
+        #bc_loss = sim_real_ratio*loss_real + loss_sim
+        #if sim batch_size == real batch size, we don't need bc_loss here
+        #bc_loss = loss_real + loss_sim
+        agent.update(loss_sim, L, epoch)
         loss_train_sim += loss_sim.detach().cpu().item()
 
     agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
@@ -364,12 +365,12 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
     loss_val_real = evaluate(agent, bc_validation_dataloader_real, L, epoch)
     loss_val_sim = evaluate(agent, bc_validation_dataloader_sim, L, epoch)
 
-    return loss_train_real/it_per_epoch_sim,loss_train_sim/it_per_epoch_sim,loss_val_real,loss_val_sim
+    return loss_train_real/it_per_epoch_real, loss_train_sim/it_per_epoch_sim, loss_val_real, loss_val_sim
 
 def train_in_one_epoch(agent, it_per_epoch, bc_train_dataloader, bc_validation_dataloader, L, epoch):
     
     loss_train = 0
-    for it in tqdm(range(it_per_epoch)):
+    for _ in tqdm(range(it_per_epoch)):
 
         bc_loss = compute_loss(agent,bc_train_dataloader,L,epoch)
         loss = agent.update(bc_loss, L, epoch)
@@ -481,7 +482,8 @@ def train_real_sim(args):
             final_success = eval_in_env(args, agent, log_dir, "best", 10, 10)
             wandb.log({"final_success": final_success})
             print(f"Final success rate: {final_success:.4f}")
-            wandb.finish()
+        
+        wandb.finish()
 
     else:
         log_dir = os.path.dirname(args["ckpt"])
@@ -497,7 +499,8 @@ def train_real_sim(args):
             final_success = eval_in_env(args, agent, log_dir, "best", 10, 10)
             wandb.log({"final_success": final_success})
             print(f"Final success rate: {final_success:.4f}")
-            wandb.finish()
+        
+        wandb.finish()
 
 
 def parse_args():

@@ -896,338 +896,6 @@ class InsertObjectEnvPlayer(DataPlayer):
             baked_data["action"].append(baked_data["action"][-1])
 
         return baked_data
-
-
-def bake_demonstration_allegro_test(retarget=False):
-    from pathlib import Path
-
-    # Recorder
-    # robot_name = "allegro_hand_xarm6_wrist_mounted_face_down"
-    # path = Path("/home/sim/data/teleop/relocate-mustard_bottle/0021.pickle")
-    path = "./sim/raw_data/xarm/less_random/pick_place_single_demo/mustard_bottle_0050.pickle"
-    # all_data = np.load(str(path.resolve()), allow_pickle=True)
-    all_data = np.load(path, allow_pickle=True)
-    meta_data = all_data["meta_data"]
-    task_name = meta_data["env_kwargs"]['task_name']
-    meta_data["env_kwargs"].pop('task_name')
-    data = all_data["data"]
-    use_visual_obs = False
-    if not retarget:
-        robot_name = meta_data["robot_name"]
-    else:
-        robot_name = "allegro_hand_xarm6_wrist_mounted_face_down"
-    if 'finger_control_params' in meta_data.keys():
-        finger_control_params = meta_data['finger_control_params']
-    if 'root_rotation_control_params' in meta_data.keys():
-        root_rotation_control_params = meta_data['root_rotation_control_params']
-    if 'root_translation_control_params' in meta_data.keys():
-        root_translation_control_params = meta_data['root_translation_control_params']
-    if 'robot_arm_control_params' in meta_data.keys():
-        robot_arm_control_params = meta_data['robot_arm_control_params']        
-
-    # Create env
-    env_params = meta_data["env_kwargs"]
-    env_params['robot_name'] = robot_name
-    env_params['use_visual_obs'] = use_visual_obs
-    env_params['use_gui'] = True
-    # Specify rendering device if the computing device is given
-    if "CUDA_VISIBLE_DEVICES" in os.environ:
-        env_params["device"] = "cuda"
-    if robot_name == "mano":
-        env_params["zero_joint_pos"] = meta_data["zero_joint_pos"]
-    else:
-        env_params["zero_joint_pos"] = None
-    if 'init_obj_pos' in meta_data["env_kwargs"].keys():
-        env_params['init_obj_pos'] = meta_data["env_kwargs"]['init_obj_pos']
-    if 'init_target_pos' in meta_data["env_kwargs"].keys():
-        env_params['init_target_pos'] = meta_data["env_kwargs"]['init_target_pos']
-    
-    if task_name == 'pick_place':
-        env = PickPlaceRLEnv(**env_params)
-    elif task_name == 'dclaw':
-        env = DClawRLEnv(**env_params)
-    elif task_name == 'hammer':
-        env = HammerRLEnv(**env_params)
-    elif task_name == 'table_door':
-        env = TableDoorRLEnv(**env_params)
-    elif task_name == 'insert_object':
-        env = InsertObjectRLEnv(**env_params)
-    elif task_name == 'mug_flip':
-        env = MugFlipRLEnv(**env_params)
-    else:
-        raise NotImplementedError
-
-    if not retarget:
-        if "free" in robot_name:
-            for joint in env.robot.get_active_joints():
-                name = joint.get_name()
-                if "x_joint" in name or "y_joint" in name or "z_joint" in name:
-                    joint.set_drive_property(*(1 * root_translation_control_params), mode="acceleration")
-                elif "x_rotation_joint" in name or "y_rotation_joint" in name or "z_rotation_joint" in name:
-                    joint.set_drive_property(*(1 * root_rotation_control_params), mode="acceleration")
-                else:
-                    joint.set_drive_property(*(finger_control_params), mode="acceleration")
-            env.rl_step = env.simple_sim_step
-        elif "xarm" in robot_name:
-            arm_joint_names = [f"joint{i}" for i in range(1, 8)]
-            for joint in env.robot.get_active_joints():
-                name = joint.get_name()
-                if name in arm_joint_names:
-                    joint.set_drive_property(*(1 * robot_arm_control_params), mode="force")
-                else:
-                    joint.set_drive_property(*(1 * finger_control_params), mode="force")
-            env.rl_step = env.simple_sim_step
-    env.reset()
-    viewer = env.render(mode="human")
-    env.viewer = viewer
-    # viewer.set_camera_xyz(0.4, 0.2, 0.5)
-    # viewer.set_camera_rpy(0, -np.pi/4, 5*np.pi/6)
-    viewer.set_camera_xyz(-0.6, 0.6, 0.6)
-    viewer.set_camera_rpy(0, -np.pi/6, np.pi/4)
-    if task_name == 'table_door':
-        viewer.set_camera_xyz(-0.6, -0.6, 0.6)
-        viewer.set_camera_rpy(0, -np.pi/6, -np.pi/4)
-
-    # Player
-    if task_name == 'pick_place':
-        player = PickPlaceEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'dclaw':
-        player = DcLawEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'hammer':
-        player = HammerEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'table_door':
-        player = TableDoorEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'insert_object':
-        player = InsertObjectEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'mug_flip':
-        player = FlipMugEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    else:
-        raise NotImplementedError
-
-    # Retargeting
-    if retarget:
-        link_names = ["palm_center", "link_15.0_tip", "link_3.0_tip", "link_7.0_tip", "link_11.0_tip", "link_14.0",
-                    "link_2.0", "link_6.0", "link_10.0"]
-        indices = [0, 1, 2, 3, 5, 6, 7, 8]
-        joint_names = [joint.get_name() for joint in env.robot.get_active_joints()]
-        retargeting = PositionRetargeting(env.robot, joint_names, link_names, has_global_pose_limits=False,
-                                        has_joint_limits=True)
-        baked_data = player.bake_demonstration(retargeting, method="tip_middle", indices=indices)
-    else:
-        baked_data = player.bake_demonstration()
-
-    # Debug
-    a = []
-    a1 = []
-
-    # Visualization
-    env.reset()
-    player.scene.unpack(player.get_sim_data(0))
-    for _ in range(player.env.frame_skip):
-        player.scene.step()
-    if player.human_robot_hand is not None:
-        player.scene.remove_articulation(player.human_robot_hand.robot)
-    env.robot.set_qpos(baked_data["robot_qpos"][0])
-    if baked_data["robot_qvel"] != []:
-        env.robot.set_qvel(baked_data["robot_qvel"][0])
-    # actor_id = env.manipulated_object.get_id()
-    # target_pose_vec = baked_data["target_pose"]
-    # env.target_object.set_pose(sapien.Pose(target_pose_vec[:3], target_pose_vec[3:]))
-    # articulation_id = env.manipulated_object.get_links()[0].get_id()
-    robot_pose = env.robot.get_pose()
-    rotation_matrix = transforms3d.quaternions.quat2mat(robot_pose.q)
-    world_to_robot = transforms3d.affines.compose(-np.matmul(rotation_matrix.T,robot_pose.p),rotation_matrix.T,np.ones(3))
-    delta_catesian_action = []
-    for idx, (obs, qpos, state, action, ee_pose) in enumerate(zip(baked_data["obs"], baked_data["robot_qpos"], baked_data["state"],
-                                        baked_data["action"], baked_data["ee_pose"])):
-        # NOTE: robot.get_qpos() version
-        if idx != len(baked_data['obs'])-1:
-            palm_pose = env.ee_link.get_pose()
-            palm_pose = robot_pose.inv() * palm_pose
-
-            ee_pose_next = baked_data["ee_pose"][idx + 1]
-            palm_next_pose = sapien.Pose(ee_pose_next[0:3], ee_pose_next[3:7])
-            palm_next_pose = robot_pose.inv() * palm_next_pose
-
-            palm_delta_pose = palm_pose.inv() * palm_next_pose
-            delta_axis, delta_angle = transforms3d.quaternions.quat2axangle(palm_delta_pose.q)
-            if delta_angle > np.pi:
-                delta_angle = 2 * np.pi - delta_angle
-                delta_axis = -delta_axis
-            delta_axis_world = palm_pose.to_transformation_matrix()[:3, :3] @ delta_axis
-            delta_pose = np.concatenate([palm_next_pose.p - palm_pose.p, delta_axis_world * delta_angle])
-
-            # euler = euler_optim.optimize(transforms3d.quaternions.quat2mat(palm_next_pose.q))
-            # palm_next_pose = np.concatenate((palm_next_pose.p, euler))
-            # delta_pose = palm_next_pose - palm_pose
-            palm_jacobian = env.kinematic_model.compute_end_link_spatial_jacobian(env.robot.get_qpos()[:env.arm_dof])
-            arm_qvel = compute_inverse_kinematics(delta_pose, palm_jacobian)[:env.arm_dof]
-            arm_qpos = arm_qvel + env.robot.get_qpos()[:env.arm_dof]
-            hand_qpos = action[env.arm_dof:]
-            target_qpos = np.concatenate([arm_qpos, hand_qpos])
-            env.step(target_qpos)
-            env.render()
-
-        # # NOTE: Old Method
-        # env.step(action)
-        # ##
-        # # env.robot.set_qpos(qpos)
-        # # print(action[:6])
-        # # print(env.reward())
-        # # object_pose = state["actor"][actor_id]["pose"]
-        # # object_pose = state["articulation"][articulation_id]["pose"]
-        # # env.manipulated_object.set_pose(sapien.Pose([0,0,-0.3], [1,0,0,0]))
-        # # env.manipulated_object.set_pose(sapien.Pose(object_pose[:3], object_pose[3:7]))
-        # ##
-
-        # env.render()
-        # # for _ in range(3):
-        # #     env.render()
-
-def bake_demonstration_panda_test():
-    from pathlib import Path
-
-    # Recorder
-    robot_name = "allegro_hand_xarm6_wrist_mounted_rotate"
-    path = Path("/home/sim/data/teleop/relocate-mustard_bottle/0021.pickle")
-    all_data = np.load(str(path.resolve()), allow_pickle=True)
-    meta_data = all_data["meta_data"]
-    data = all_data["data"]
-    env = RelocateRLEnv(**meta_data["env_kwargs"], robot_name=robot_name, use_gui=True)
-    player = RelocateObjectEnvPlayer(meta_data, data, env, zero_joint_pos=meta_data["zero_joint_pos"])
-    # env.robot.set_pose(sapien.Pose([0, 0, -2]))
-
-    # Retargeting
-    link_names = ["palm_center", "link_15.0_tip", "link_3.0_tip", "link_7.0_tip", "link_11.0_tip", "link_14.0",
-                  "link_2.0", "link_6.0", "link_10.0"]
-    indices = [0, 1, 2, 3, 5, 6, 7, 8]
-    joint_names = [joint.get_name() for joint in env.robot.get_active_joints()]
-    retargeting = PositionRetargeting(env.robot, joint_names, link_names, has_global_pose_limits=False,
-                                      has_joint_limits=True)
-    baked_data = player.bake_demonstration(retargeting, method="tip_middle", indices=indices)
-
-    # Visualization
-    player.scene.remove_articulation(player.human_robot_hand.robot)
-    actor_id = env.manipulated_object.get_id()
-    target_pose_vec = baked_data["target_pose"]
-    env.target_object.set_pose(sapien.Pose(target_pose_vec[:3], target_pose_vec[3:]))
-    for obs, qpos, state, action in zip(baked_data["obs"], baked_data["robot_qpos"], baked_data["state"],
-                                        baked_data["action"]):
-        env.robot.set_qpos(obs[:22])
-        # print(action[:6])
-        # print(env.reward())
-        object_pose = state["actor"][actor_id]["pose"]
-        env.manipulated_object.set_pose(sapien.Pose(object_pose[:3], object_pose[3:7]))
-
-        for _ in range(3):
-            env.render()
-
-
-def bake_demonstration_mano():
-    from pathlib import Path
-
-    # Recorder
-    robot_name = "mano"
-    shutil.rmtree('./temp/demos/single')
-    os.makedirs('./temp/demos/single')
-    path = "./sim/raw_data/free_hand/less_random/mano_pick_place_mustard_bottle/mustard_bottle_0001.pickle"
-    all_data = np.load(path, allow_pickle=True)
-    meta_data = all_data["meta_data"]
-    task_name = meta_data["env_kwargs"]['task_name']
-    meta_data["env_kwargs"].pop('task_name')
-    data = all_data["data"]
-    use_visual_obs = False
-
-    # Create env
-    env_params = meta_data["env_kwargs"]
-    env_params['robot_name'] = robot_name
-    env_params['use_visual_obs'] = use_visual_obs
-    env_params['use_gui'] = True
-    # env_params = dict(object_name=meta_data["env_kwargs"]['object_name'], object_scale=meta_data["env_kwargs"]['object_scale'], robot_name=robot_name, 
-    #                  rotation_reward_weight=rotation_reward_weight, constant_object_state=False, randomness_scale=meta_data["env_kwargs"]['randomness_scale'], 
-    #                  use_visual_obs=use_visual_obs, use_gui=False)
-    # Specify rendering device if the computing device is given
-    if "CUDA_VISIBLE_DEVICES" in os.environ:
-        env_params["device"] = "cuda"
-    if robot_name == "mano":
-        env_params["zero_joint_pos"] = meta_data["zero_joint_pos"]
-    if 'init_obj_pos' in meta_data["env_kwargs"].keys():
-        env_params['init_obj_pos'] = meta_data["env_kwargs"]['init_obj_pos']
-    if 'init_target_pos' in meta_data["env_kwargs"].keys():
-        env_params['init_target_pos'] = meta_data["env_kwargs"]['init_target_pos']
-    if task_name == 'pick_place':
-        env = PickPlaceRLEnv(**env_params)
-    elif task_name == 'dclaw':
-        env = DClawRLEnv(**env_params)
-    elif task_name == 'hammer':
-        env = HammerRLEnv(**env_params)
-    elif task_name == 'table_door':
-        env = TableDoorRLEnv(**env_params)
-    elif task_name == 'insert_object':
-        env = InsertObjectRLEnv(**env_params)
-    elif task_name == 'mug_flip':
-        env = MugFlipRLEnv(**env_params)
-    else:
-        raise NotImplementedError
-    env.reset()
-
-    viewer = env.render(mode="human")
-    env.viewer = viewer
-    # viewer.set_camera_xyz(0.4, 0.2, 0.5)
-    # viewer.set_camera_rpy(0, -np.pi/4, 5*np.pi/6)
-    viewer.set_camera_xyz(-0.6, 0, 0.6)
-    viewer.set_camera_rpy(0, -np.pi/6, 0)    
-    # Player
-    if task_name == 'pick_place':
-        player = PickPlaceEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'dclaw':
-        player = DcLawEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'hammer':
-        player = HammerEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'table_door':
-        player = TableDoorEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'insert_object':
-        player = InsertObjectEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'mug_flip':
-        player = FlipMugEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    else:
-        raise NotImplementedError
-    
-    baked_data = player.bake_demonstration()
-
-    # Visualization
-    env.reset()
-    player.scene.unpack(player.get_sim_data(0))
-    for _ in range(player.env.frame_skip):
-        player.scene.step()
-    player.scene.remove_articulation(player.human_robot_hand.robot)
-    # target_pose_vec = baked_data["target_pose"]
-    # env.target_object.set_pose(sapien.Pose(target_pose_vec[:3], target_pose_vec[3:]))
-    # articulation_id = env.manipulated_object.get_links()[0].get_id()
-    env.robot.set_qpos(baked_data["robot_qpos"][0])
-    if baked_data["robot_qvel"] != []:
-        env.robot.set_qvel(baked_data["robot_qvel"][0])
-
-    for obs, qpos, state, action in zip(baked_data["obs"], baked_data["robot_qpos"], baked_data["state"],
-                                        baked_data["action"]):
-
-        env.step(action)
-
-        ##
-        # print(action[:6])
-        # print(env.reward())
-        # env.robot.set_qpos(obs[:51])
-        # object_pose = state["actor"][actor_id]["pose"]
-        # env.manipulated_object.set_pose(sapien.Pose(object_pose[:3], object_pose[3:7]))
-        # object_qpos = state["articulation"][articulation_id]["qpos"]
-        # object_qvel = state["articulation"][articulation_id]["qvel"]
-        # env.manipulated_object.set_qpos(object_qpos)
-        # env.manipulated_object.set_qvel(object_qvel)
-        # prev_obs = obs
-        ##
-
-        for _ in range(3):
-            env.render()
     
 def average_angle_handqpos(hand_qpos):
     delta_angles = []
@@ -1402,15 +1070,18 @@ def bake_visual_demonstration_test(retarget=False):
     ee_pose = baked_data["ee_pose"][0]
     hand_qpos_prev = baked_data["action"][0][env.arm_dof:]
     frame_skip=4
+    i = 0
     for idx in range(0,len(baked_data["obs"]),frame_skip):
         # NOTE: robot.get_qpos() version
         if idx < len(baked_data['obs'])-frame_skip:
+
             action = baked_data["action"][idx]
             ee_pose_next = baked_data["ee_pose"][idx + frame_skip]
             ee_pose_delta = np.sqrt(np.sum((ee_pose_next[:3] - ee_pose[:3])**2))
             hand_qpos = baked_data["action"][idx][env.arm_dof:]
             
             delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
+
             if ee_pose_delta < 0.0025 and average_angle_handqpos(delta_hand_qpos)<=np.pi/180 :
                 #print("!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!")
                 continue
@@ -1442,27 +1113,16 @@ def bake_visual_demonstration_test(retarget=False):
                 visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                 _, _, _, info = env.step(target_qpos)
                 env.render()
+
+                rgb = env.get_observation()["relocate_view-rgb"].cpu().detach().numpy()
+                rgb_pic = (rgb * 255).astype(np.uint8)
+                imageio.imsave("./temp/demos/player/relocate-rgb_{}.png".format(i), rgb_pic)
+                i += 1
+               
                 #print("delta_angle",env.object_total_rotate_angle)
                 # print(env.get_observation()["relocate_view-rgb"].shape)
-                robot_qpos = np.concatenate([env.robot.get_qpos(),env.ee_link.get_pose().p,env.ee_link.get_pose().q])
+                #robot_qpos = np.concatenate([env.robot.get_qpos(),env.ee_link.get_pose().p,env.ee_link.get_pose().q])
                 #print("robot_qpos",robot_qpos)
-                
-                
-
-        # # NOTE: Old Version
-        # visual_baked["obs"].append(env.get_observation())
-        # visual_baked["action"].append(action)
-        # env.step(action)
-
-        # env.render()
-        # # for _ in range(3):
-        # #     env.render()
-
-    # for i in range(len(visual_baked["obs"])):
-    #     rgb = visual_baked["obs"][i]["relocate_view-rgb"].cpu().detach().numpy()
-    #     rgb_pic = (rgb * 255).astype(np.uint8)
-    #     imageio.imsave("./temp/demos/player/relocate-rgb_{}.png".format(i), rgb_pic)
-
 
 def bake_visual_real_demonstration_test(retarget=False):
     from pathlib import Path
@@ -1734,5 +1394,5 @@ if __name__ == '__main__':
     # bake_demonstration_svh_test()
     # bake_demonstration_ar10_test()
     # bake_demonstration_mano()
-    #bake_visual_demonstration_test()
-    bake_visual_real_demonstration_test()
+    bake_visual_demonstration_test()
+    #bake_visual_real_demonstration_test()

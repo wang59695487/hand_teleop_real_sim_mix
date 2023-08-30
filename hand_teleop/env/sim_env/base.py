@@ -95,6 +95,7 @@ class BaseSimulationEnv(object):
                 self.viewer = Viewer(self.renderer)
                 self.viewer.set_scene(self.scene)
             if len(self.scene.get_all_lights()) <= 1:
+                print("#################################Add default light################################")
                 add_default_scene_light(self.scene, self.renderer)
             self.viewer.render()
             return self.viewer

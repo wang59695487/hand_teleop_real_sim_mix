@@ -3,10 +3,15 @@ import os
 import zipfile
 from pathlib import Path
 
+
 import numpy as np
+import numpy.random as random
+
 import requests
 import sapien.core as sapien
 from sapien.utils import Viewer
+
+from scipy.spatial.transform import Rotation as R
 
 _engine = None
 _renderer = None
@@ -95,6 +100,29 @@ def add_default_scene_light(scene: sapien.Scene, renderer: sapien.VulkanRenderer
     scene.add_directional_light([0, 0, -1], [0.9, 0.8, 0.8], shadow=False)
     scene.add_spot_light(np.array([0, 0, 1.5]), direction=np.array([0, 0, -1]), inner_fov=0.3, outer_fov=1.0,
                          color=np.array([0.5, 0.5, 0.5]), shadow=False)
+
+    visual_material = renderer.create_material()
+    visual_material.set_base_color(np.array([0.5, 0.5, 0.5, 1]))
+    visual_material.set_roughness(0.7)
+    visual_material.set_metallic(1)
+    visual_material.set_specular(0.04)
+    if add_ground:
+        scene.add_ground(-1, render_material=visual_material, render_half_size=np.array([50,50]))
+
+def add_random_scene_light(scene: sapien.Scene, renderer: sapien.VulkanRenderer,randomness_scale = 1, add_ground=True, cast_shadow=True):
+    # If the light is already set, then we just skip the function.
+    if len(scene.get_all_lights()) >= 3:
+        return
+    # asset_dir = Path(__file__).parent.parent.parent.parent / "assets"
+    # ktx_path = asset_dir / "misc" / "ktx" / "day.ktx"
+    # scene.set_environment_map(str(ktx_path))
+
+    var = randomness_scale * 0.1
+
+    scene.add_directional_light(R.random().as_euler('zxy', degrees=False), random.uniform(0.5-var, 0.5+var,size=3), shadow=cast_shadow)
+    scene.add_directional_light(R.random().as_euler('zxy', degrees=False), random.uniform(0.9-var, 0.8+var, size=3), shadow=False)
+    scene.add_spot_light(R.random().as_euler('zxy', degrees=False), direction=R.random().as_euler('zxy', degrees=False), inner_fov=0.3, outer_fov=1.0,
+                         color=np.array(random.uniform(0.5-var, 0.5+var, size=3)), shadow=False)
 
     visual_material = renderer.create_material()
     visual_material.set_base_color(np.array([0.5, 0.5, 0.5, 1]))

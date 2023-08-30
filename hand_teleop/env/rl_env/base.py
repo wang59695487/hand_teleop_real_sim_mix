@@ -122,7 +122,9 @@ class BaseRLEnv(BaseSimulationEnv, gym.Env):
         if self.use_visual_obs:
             self.get_observation = self.get_visual_observation
             if not self.no_rgb:
-                add_default_scene_light(self.scene, self.renderer)
+                #print(f"###############################Add Default Scene Light####################################")
+                #add_default_scene_light(self.scene, self.renderer)
+                pass
         else:
             self.get_observation = self.get_oracle_state
 

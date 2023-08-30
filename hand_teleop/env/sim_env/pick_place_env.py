@@ -69,7 +69,8 @@ class PickPlaceEnv(BaseSimulationEnv):
         else:
             raise NotImplementedError
         
-        self.generate_random_object_texture()
+        print('################################Randomizing Object Texture##########################')
+        self.generate_random_object_texture(randomness_scale)
     
     def generate_random_object_pose(self, randomness_scale):
         # Small Random
@@ -92,19 +93,35 @@ class PickPlaceEnv(BaseSimulationEnv):
         random_pose = sapien.Pose(position, orientation)
         return random_pose
 
-    def generate_random_object_texture(self):
-            random.seed(self.object_seed)
 
-            default_color = np.array([1, 0, 0, 1])
-
-            for visual in self.plate.get_visual_bodies():
+    def generate_random_object_texture(self, randomness_scale):
+        var = 0.3 * randomness_scale
+        default_color = np.array([1, 0, 0, 1])
+        for visual in self.plate.get_visual_bodies():
+            for geom in visual.get_render_shapes():
+                mat = geom.material
+                mat.set_base_color(default_color)
+                mat.set_specular(random.uniform(0, var))
+                mat.set_roughness(random.uniform(0.7-var, 0.7+var))
+                mat.set_metallic(random.uniform(0, var))
+                geom.set_material(mat)
+                
+        for table in self.tables:
+            for visual in table.get_visual_bodies():
                 for geom in visual.get_render_shapes():
                     mat = geom.material
-                    mat.set_base_color(default_color)
-                    mat.set_specular(0.2)
-                    mat.set_roughness(0.7)
-                    mat.set_metallic(0.1)
+                    mat.set_specular(random.uniform(0, var))
+                    mat.set_roughness(random.uniform(0.7-var, 0.7+var))
+                    mat.set_metallic(random.uniform(0, var))
                     geom.set_material(mat)
+        
+        for visual in self.manipulated_object.get_visual_bodies():
+            for geom in visual.get_render_shapes():
+                mat = geom.material
+                mat.set_specular(random.uniform(0, var))
+                mat.set_roughness(random.uniform(0.7-var, 0.7+var))
+                mat.set_metallic(random.uniform(0, var))
+                geom.set_material(mat)
                   
 
 

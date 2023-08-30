@@ -11,7 +11,7 @@ from hand_teleop.env.rl_env.base import BaseRLEnv
 from hand_teleop.env.sim_env.pick_place_env import PickPlaceEnv
 from hand_teleop.real_world import lab
 from hand_teleop.utils.common_robot_utils import generate_free_robot_hand_info, generate_arm_robot_hand_info
-from hand_teleop.env.sim_env.constructor import add_default_scene_light
+from hand_teleop.env.sim_env.constructor import add_default_scene_light, add_random_scene_light
 from hand_teleop.kinematics.mano_robot_hand import MANORobotHand
 
 
@@ -31,6 +31,7 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
         self.constant_object_state = constant_object_state
         self.rotation_reward_weight = rotation_reward_weight
         self.object_pose_noise = object_pose_noise
+        self.randomness_scale = randomness_scale
 
         # Parse link name
         if self.is_robot_free:
@@ -45,6 +46,11 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
 
         # Object init pose
         self.object_episode_init_pose = sapien.Pose()
+        
+        print(f"###############################Add Random Scene Light####################################")
+        #add_random_scene_light(self.scene, self.renderer, self.randomness_scale)
+        add_random_scene_light(self.scene, self.renderer, self.randomness_scale)  
+
 
     def mano_setup(self, frame_skip, zero_joint_pos):
         self.robot_name = "mano"
@@ -72,10 +78,12 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
         # Scene light and obs
         if self.use_visual_obs:
             self.get_observation = self.get_visual_observation
+            # Add Random Scene Light
             if not self.no_rgb:
-                add_default_scene_light(self.scene, self.renderer)
+                print(f"###############################Add Default Scene Light####################################")
+                add_default_scene_light(self.scene, self.renderer,self.randomness_scale)
         else:
-            self.get_observation = self.get_oracle_state                
+            self.get_observation = self.get_oracle_state              
 
     def get_oracle_state(self):
         robot_qpos_vec = self.robot.get_qpos()

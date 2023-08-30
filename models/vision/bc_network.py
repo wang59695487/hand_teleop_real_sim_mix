@@ -51,17 +51,17 @@ class BCNetwork(nn.Module):
         self.sim_bn4 = nn.BatchNorm1d(int(self.chin/4))
         #self.drop3 = nn.Dropout(dropout)
 
-        self.l5 = nn.Linear(int(self.chin/4), int(self.chin/8))
-        self.bn5 = nn.BatchNorm1d(int(self.chin/8))
-        self.real_bn5 = nn.BatchNorm1d(int(self.chin/8))
-        self.sim_bn5 = nn.BatchNorm1d(int(self.chin/8))
+        # self.l5 = nn.Linear(int(self.chin/4), int(self.chin/8))
+        # self.bn5 = nn.BatchNorm1d(int(self.chin/8))
+        # self.real_bn5 = nn.BatchNorm1d(int(self.chin/8))
+        # self.sim_bn5 = nn.BatchNorm1d(int(self.chin/8))
 
         # self.l6 = nn.Linear(int(self.chin/8), int(self.chin/4))
         # self.bn6 = nn.BatchNorm1d(int(self.chin/4))
         # self.real_bn6 = nn.BatchNorm1d(int(self.chin/4))
         # self.sim_bn6 = nn.BatchNorm1d(int(self.chin/4))
 
-        self.l7 = nn.Linear(int(self.chin/8), action_dim)
+        self.l7 = nn.Linear(int(self.chin/4), action_dim)
         self.pn_drop = nn.Dropout(dropout)
 
         # self.chin = obs_dim+robot_qpos_dim
@@ -120,7 +120,7 @@ class BCNetwork(nn.Module):
             x = torch.cat([self.vis_drop(self.vis_out(x)),robot_qpos], dim = 1)
             x = torch.relu(self.real_bn3(self.l3(x)))
             x = torch.relu(self.real_bn4(self.l4(x)))
-            x = torch.relu(self.real_bn5(self.l5(x)))
+            # x = torch.relu(self.real_bn5(self.l5(x)))
             # x = torch.relu(self.real_bn6(self.l6(x)))
             # x = self.drop2(torch.relu(self.bn2(self.l2(x))))   
             # x = self.drop3(torch.relu(self.bn3(self.l3(x))))  
@@ -137,7 +137,7 @@ class BCNetwork(nn.Module):
             # x = torch.cat([self.vis_out(x),robot_qpos], dim = 1)
             x = torch.relu(self.sim_bn3(self.l3(x)))
             x = torch.relu(self.sim_bn4(self.l4(x)))
-            x = torch.relu(self.sim_bn5(self.l5(x)))
+            # x = torch.relu(self.sim_bn5(self.l5(x)))
             # x = torch.relu(self.sim_bn6(self.l6(x)))
             #x = self.pn_drop(torch.relu(self.l6(x)))
             # x = self.drop2(torch.relu(self.bn2(self.l2(x))))   
