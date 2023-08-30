@@ -93,9 +93,9 @@ def add_default_scene_light(scene: sapien.Scene, renderer: sapien.VulkanRenderer
     # If the light is already set, then we just skip the function.
     if len(scene.get_all_lights()) >= 3:
         return
-    asset_dir = Path(__file__).parent.parent.parent.parent / "assets"
-    ktx_path = asset_dir / "misc" / "ktx" / "day.ktx"
-    scene.set_environment_map(str(ktx_path))
+    # asset_dir = Path(__file__).parent.parent.parent.parent / "assets"
+    # ktx_path = asset_dir / "misc" / "ktx" / "day.ktx"
+    # scene.set_environment_map(str(ktx_path))
     scene.add_directional_light(np.array([-1, -1, -1]), np.array([0.5, 0.5, 0.5]), shadow=cast_shadow)
     scene.add_directional_light([0, 0, -1], [0.9, 0.8, 0.8], shadow=False)
     scene.add_spot_light(np.array([0, 0, 1.5]), direction=np.array([0, 0, -1]), inner_fov=0.3, outer_fov=1.0,

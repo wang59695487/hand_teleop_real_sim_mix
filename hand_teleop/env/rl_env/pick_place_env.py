@@ -46,11 +46,16 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
 
         # Object init pose
         self.object_episode_init_pose = sapien.Pose()
+        self.add_lignt()
         
-        print(f"###############################Add Random Scene Light####################################")
-        #add_random_scene_light(self.scene, self.renderer, self.randomness_scale)
-        add_random_scene_light(self.scene, self.renderer, self.randomness_scale)  
 
+    def add_lignt(self,mode="train"):
+        if mode == "train":
+            print(f"###############################Add Random Scene Light####################################")
+            add_random_scene_light(self.scene, self.renderer, self.randomness_scale)  
+        else:
+            print(f"###############################Add Default Scene Light####################################")
+            add_default_scene_light(self.scene, self.renderer)
 
     def mano_setup(self, frame_skip, zero_joint_pos):
         self.robot_name = "mano"
