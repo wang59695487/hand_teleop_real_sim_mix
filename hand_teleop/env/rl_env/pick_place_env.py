@@ -207,7 +207,7 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
         if object_z >= 0.105:
             self.is_object_lifted = True
 
-        return self.is_object_lifted
+        return self.is_object_lifted <= 0.15
     
     def _is_object_still(self):
         # check if the object is close to still

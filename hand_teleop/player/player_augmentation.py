@@ -431,6 +431,7 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
                 hand_qpos = action[env.arm_dof:]
                 target_qpos = np.concatenate([arm_qpos, hand_qpos])
                 data["simulation"].append(env.scene.pack())
+                data['action'] = np.concatenate([delta_pose*100, hand_qpos])
                 data["robot_qpos"].append(np.concatenate([env.robot.get_qpos(),
                                                       env.ee_link.get_pose().p,env.ee_link.get_pose().q]))
                 rgb_pics.append(env.get_observation()["relocate_view-rgb"].cpu().detach().numpy())
@@ -440,7 +441,7 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
     augment_data = {'data': data, 'meta_data': meta_data}
 
     if task_name == 'pick_place':
-        info_success = info["is_object_lifted"] and info["success"] and info['_is_close_to_target'] <= 0.15
+        info_success = info["is_object_lifted"] and info["success"] and info['_is_close_to_target'] 
     
     for i in range(len(rgb_pics)):
         rgb = rgb_pics[i]
@@ -476,7 +477,7 @@ def player_augmenting(args):
 
             all_data = copy.deepcopy(demo)
 
-            out_folder = f"./sim/raw_augmentation/{args['task_name']}_{args['object_name']}_aug/"
+            out_folder = f"./sim/raw_augmentation_kaiming/{args['task_name']}_{args['object_name']}_aug/"
             os.makedirs(out_folder, exist_ok=True)
 
             # if len(os.listdir(out_folder)) == 0:
@@ -503,6 +504,7 @@ def player_augmenting(args):
             
             if num_test == args['kinematic_aug']:
                 break
+        break
 
 if __name__ == '__main__':
 
@@ -511,11 +513,11 @@ if __name__ == '__main__':
      
     args = {
         'seed': 20230825,
-        'sim_demo_folder' : './sim/raw_data/xarm/less_random',
+        'sim_demo_folder' : './sim/raw_data/',
         'task_name': "pick_place",
-        #'object_name': "mustard_bottle",
+        'object_name': "mustard_bottle",
         #'object_name': "tomato_soup_can",
-        'object_name': "sugar_box",
+        #'object_name': "sugar_box",
         'kinematic_aug': 100,
         'retarget': False
     }
