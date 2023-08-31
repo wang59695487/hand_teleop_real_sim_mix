@@ -183,8 +183,6 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
 
     # since in simulation, we always use simulated data, so sim_real_label is always 0
     sim_real_label = [0]
-    env.add_lignt(mode="eval")
-    
     for x in np.linspace(-0.08, 0.08, x_steps):        # -0.05 0 /// -0.1 0 // -0.1 0.1
         for y in np.linspace(0.22, 0.28, y_steps):  # 0.12 0.18 /// 0.1 0.2 // 0.2 0.3
             video = []
@@ -271,10 +269,9 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
                 next_obs, reward, done, info = env.step(real_action)
                 if task_name == 'pick_place':
                     if epoch != "best":
-                        if task_name == 'pick_place':
-                            info_success = info["is_object_lifted"] and info["success"]
+                        info_success = info["is_object_lifted"] and info["object_plate_contact"] and info["_is_close_to_target"]
                     else:
-                        info_success = info["success"]
+                        info_success = info["object_plate_contact"] and info["_is_close_to_target"]
 
                 elif task_name == 'dclaw':
 
@@ -346,7 +343,7 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
     loss_train_real = 0
     loss_train_sim = 0
 
-    for _ in tqdm(range(it_per_epoch_sim)):
+    for _ in tqdm(range(it_per_epoch_real)):
         loss_real = compute_loss(agent,bc_train_dataloader_real,L,epoch)
         #bc_loss = sim_real_ratio*loss_real + loss_sim
         #if sim batch_size == real batch size, we don't need bc_loss here
