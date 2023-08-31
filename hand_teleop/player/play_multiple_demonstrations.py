@@ -511,9 +511,9 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     # Using robot qpos version
                     visual_baked["robot_qpos"].append(np.concatenate([env.robot.get_qpos(),
                                                       env.ee_link.get_pose().p,env.ee_link.get_pose().q]))
-
                 
                     env.step(target_qpos)
+                    dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
                
 
     # # For visual obs debugging    
