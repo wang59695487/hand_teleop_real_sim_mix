@@ -458,8 +458,8 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
             if idx < len(baked_data['obs'])-frame_skip:
                 ee_pose_next = baked_data["ee_pose"][idx + frame_skip]
                 ee_pose_delta = np.sqrt(np.sum((ee_pose_next[:3] - ee_pose[:3])**2))
+
                 hand_qpos = baked_data["action"][idx][env.arm_dof:]
-        
                 delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
                 
                 palm_pose = env.ee_link.get_pose()
@@ -477,8 +477,9 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                         is_hand_grasp = True
                     
                     #################### filter human noise #####################
-                    if dist_object_hand_prev < 0.25 and not(is_hand_grasp) and delta_object_hand < 0.0065:
-                        continue
+                    if dist_object_hand_prev < 0.25 and not(is_hand_grasp):
+                        if delta_object_hand < 0.002:
+                            continue
 
                     if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
                         hand_qpos = hand_qpos*0.8
@@ -501,11 +502,6 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     target_qpos = np.concatenate([arm_qpos, hand_qpos])
 
                     observation = env.get_observation()
-                    #print("observation: ", observation.keys())
-                    # rgb = observation["relocate_view-rgb"]
-                    # rgb_pic = (rgb * 255).astype(np.uint8)
-                    # print("rgb_pic: ", observation["relocate_view-rgb"].shape)
-
                     visual_baked["obs"].append(observation)
                     visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                     # Using robot qpos version

@@ -381,9 +381,6 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
 
     robot_pose = env.robot.get_pose()
 
-    ee_pose = baked_data["ee_pose"][0]
-    hand_qpos_prev = baked_data["action"][0][env.arm_dof:]
-
     ### Aug obj pose ###
     env.manipulated_object.set_pose(meta_data["env_kwargs"]['init_obj_pos'])
 
@@ -392,6 +389,11 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
     
     data = []
     rgb_pics = []
+    
+    is_hand_grasp = False
+    ee_pose = baked_data["ee_pose"][0]
+    hand_qpos_prev = baked_data["action"][0][env.arm_dof:]
+    dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
 
     for idx in tqdm(range(len(baked_data["obs"]))):
         action = baked_data["action"][idx]
@@ -403,7 +405,14 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
             hand_qpos = baked_data["action"][idx][env.arm_dof:]
             
             delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
-            if ee_pose_delta < 0.0005 and average_angle_handqpos(delta_hand_qpos)<=np.pi/180 :
+
+            object_pose = env.manipulated_object.pose.p
+            palm_pose = env.ee_link.get_pose()
+
+            dist_object_hand = np.linalg.norm(object_pose - ee_pose_next[:3])
+            delta_object_hand = dist_object_hand_prev - dist_object_hand
+
+            if ee_pose_delta < 0.0005 and  np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
                 #print("!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!")
                 continue
 
@@ -412,7 +421,16 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
                 ee_pose = ee_pose_next
                 hand_qpos_prev = hand_qpos
 
-                palm_pose = env.ee_link.get_pose()
+                if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
+                    is_hand_grasp = True
+                
+                if dist_object_hand_prev < 0.25 and not(is_hand_grasp):
+                    if delta_object_hand < 0.002:
+                        continue
+
+                if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
+                    hand_qpos = hand_qpos*0.8
+              
                 palm_pose = robot_pose.inv() * palm_pose
 
                 palm_next_pose = sapien.Pose(ee_pose_next[0:3], ee_pose_next[3:7])
@@ -429,7 +447,7 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
                 palm_jacobian = env.kinematic_model.compute_end_link_spatial_jacobian(env.robot.get_qpos()[:env.arm_dof])
                 arm_qvel = compute_inverse_kinematics(delta_pose, palm_jacobian)[:env.arm_dof]
                 arm_qpos = arm_qvel + env.robot.get_qpos()[:env.arm_dof]
-                hand_qpos = action[env.arm_dof:]
+
                 target_qpos = np.concatenate([arm_qpos, hand_qpos])
                 item_data = {"simulation":env.scene.pack(), 
                              "action": np.concatenate([delta_pose*100, hand_qpos]), 
@@ -437,13 +455,15 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
                 data.append(item_data)
                 rgb_pics.append(env.get_observation()["relocate_view-rgb"].cpu().detach().numpy())
                 _, _, _, info = env.step(target_qpos)
+
+                dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
                 #env.render()
     
     meta_data["env_kwargs"]['task_name'] = task_name
     augment_data = {'data': data, 'meta_data': meta_data}
 
     if task_name == 'pick_place':
-        info_success = info["is_object_lifted"] and info["success"] and info['_is_close_to_target'] 
+        info_success = info["is_object_lifted"] and info["success"]
     
     for i in range(len(rgb_pics)):
         rgb = rgb_pics[i]
@@ -490,7 +510,7 @@ def player_augmenting(args):
             #     num_test = str(last_num + 1).zfill(4)
                 
             info_success, data, video = generate_sim_aug(all_data=all_data, init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]),retarget=args['retarget'])
-
+            imageio.mimsave(f"./temp/demos/aug_{args['object_name']}/demo_{demo_id+1}_{num_test}_x{x:.2f}_y{y:.2f}.mp4", video, fps=120)
             if info_success:
 
                 print("##############SUCCESS##############")
@@ -516,8 +536,8 @@ if __name__ == '__main__':
         'seed': 20230826,
         'sim_demo_folder' : './sim/raw_data/',
         'task_name': "pick_place",
-        #'object_name': "mustard_bottle",
-        'object_name': "tomato_soup_can",
+        'object_name': "mustard_bottle",
+        #'object_name': "tomato_soup_can",
         #'object_name': "sugar_box",
         'kinematic_aug': 100,
         'retarget': False
