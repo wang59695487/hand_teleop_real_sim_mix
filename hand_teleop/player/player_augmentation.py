@@ -390,7 +390,7 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
     if task_name =='pick_place':
         env.plate.set_pose(meta_data["env_kwargs"]['init_target_pos'])
     
-    data = dict(simulation=[], robot_qpos=[])
+    data = []
     rgb_pics = []
 
     for idx in tqdm(range(len(baked_data["obs"]))):
@@ -408,6 +408,7 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
                 continue
 
             else:
+
                 ee_pose = ee_pose_next
                 hand_qpos_prev = hand_qpos
 
@@ -430,14 +431,15 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
                 arm_qpos = arm_qvel + env.robot.get_qpos()[:env.arm_dof]
                 hand_qpos = action[env.arm_dof:]
                 target_qpos = np.concatenate([arm_qpos, hand_qpos])
-                data["simulation"].append(env.scene.pack())
-                data['action'] = np.concatenate([delta_pose*100, hand_qpos])
-                data["robot_qpos"].append(np.concatenate([env.robot.get_qpos(),
-                                                      env.ee_link.get_pose().p,env.ee_link.get_pose().q]))
+                item_data = {"simulation":env.scene.pack(), 
+                             "action": np.concatenate([delta_pose*100, hand_qpos]), 
+                             "robot_qpos": np.concatenate([env.robot.get_qpos(),env.ee_link.get_pose().p,env.ee_link.get_pose().q])}
+                data.append(item_data)
                 rgb_pics.append(env.get_observation()["relocate_view-rgb"].cpu().detach().numpy())
                 _, _, _, info = env.step(target_qpos)
                 #env.render()
-
+    
+    meta_data["env_kwargs"]['task_name'] = task_name
     augment_data = {'data': data, 'meta_data': meta_data}
 
     if task_name == 'pick_place':
@@ -477,7 +479,7 @@ def player_augmenting(args):
 
             all_data = copy.deepcopy(demo)
 
-            out_folder = f"./sim/raw_augmentation_kaiming/{args['task_name']}_{args['object_name']}_aug/"
+            out_folder = f"./sim/raw_augmentation_action/{args['task_name']}_{args['object_name']}_aug/"
             os.makedirs(out_folder, exist_ok=True)
 
             # if len(os.listdir(out_folder)) == 0:
@@ -504,7 +506,6 @@ def player_augmenting(args):
             
             if num_test == args['kinematic_aug']:
                 break
-        break
 
 if __name__ == '__main__':
 
@@ -512,18 +513,17 @@ if __name__ == '__main__':
     args = parser.parse_args()
      
     args = {
-        'seed': 20230825,
+        'seed': 20230826,
         'sim_demo_folder' : './sim/raw_data/',
         'task_name': "pick_place",
-        'object_name': "mustard_bottle",
-        #'object_name': "tomato_soup_can",
+        #'object_name': "mustard_bottle",
+        'object_name': "tomato_soup_can",
         #'object_name': "sugar_box",
         'kinematic_aug': 100,
         'retarget': False
     }
 
     player_augmenting(args)
-
         
 
     
