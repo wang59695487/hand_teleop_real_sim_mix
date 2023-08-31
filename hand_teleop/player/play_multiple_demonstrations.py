@@ -222,16 +222,6 @@ def play_multiple_sim_real_visual(args):
         pickle.dump(meta_data, file)
         
 
-def average_angle_handqpos(hand_qpos):
-    delta_angles = []
-    for i in range(0,len(hand_qpos),4):
-        qpos = hand_qpos[i:i+4]
-        delta_axis, delta_angle = transforms3d.quaternions.quat2axangle(qpos)
-        if delta_angle > np.pi:
-            delta_angle = 2 * np.pi - delta_angle
-        delta_angles.append(delta_angle)
-    return np.mean(delta_angles)
-
 def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, randomization_prob, 
                                retarget=False, real_demo=None, real_images=None, using_real_data=False, frame_skip=4):
     if robot_name == 'mano':
@@ -403,6 +393,8 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
     else:
         ee_pose = baked_data["ee_pose"][0]
         hand_qpos_prev = baked_data["action"][0][env.arm_dof:]
+        dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
+        is_hand_grasp = False
 
     if using_real_data:
 
@@ -415,7 +407,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
         
                 delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
 
-                if ee_pose_delta <= args['delta_ee_pose_bound'] and (average_angle_handqpos(delta_hand_qpos))/np.pi*180 <= 1:
+                if ee_pose_delta <= args['delta_ee_pose_bound'] and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
                     continue
 
                 else:
@@ -469,16 +461,29 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                 hand_qpos = baked_data["action"][idx][env.arm_dof:]
         
                 delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
+                
+                palm_pose = env.ee_link.get_pose()
+                object_pose = env.manipulated_object.pose.p
+                dist_object_hand = np.linalg.norm(object_pose - ee_pose_next[:3])
+                delta_object_hand = dist_object_hand_prev - dist_object_hand
 
-                if ee_pose_delta <= args['delta_ee_pose_bound'] and (average_angle_handqpos(delta_hand_qpos))/np.pi*180 <= 1:
+                if ee_pose_delta <= args['delta_ee_pose_bound'] and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
                     continue
                 else:
                     ee_pose = ee_pose_next
-                    
                     hand_qpos_prev = hand_qpos      
-                    palm_pose = env.ee_link.get_pose()
+
+                    if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
+                        is_hand_grasp = True
+                    
+                    #################### filter human noise #####################
+                    if dist_object_hand_prev < 0.25 and not(is_hand_grasp) and delta_object_hand < 0.0065:
+                        continue
+
+                    if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
+                        hand_qpos = hand_qpos*0.8
+
                     palm_pose = robot_pose.inv() * palm_pose
-    
                     palm_next_pose = sapien.Pose(ee_pose_next[0:3], ee_pose_next[3:7])
                     palm_next_pose = robot_pose.inv() * palm_next_pose
 

@@ -162,6 +162,7 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
         self.reset_internal()
         #reset the is_object_lifted flag
         self.is_object_lifted = False
+        self.object_hand_contact = False
         # NOTE: No randomness for now.
         # self.object_episode_init_pose = self.manipulated_object.get_pose()
         # random_quat = transforms3d.euler.euler2quat(*(self.np_random.randn(3) * self.object_pose_noise * 10))
@@ -197,14 +198,31 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
 
         return object_plate_contact
     
-    def _is_close_to_target(self):
+    def _is_object_hand_contact(self):
+        # check if the object is in contact with the plate
+        all_contacts = self.scene.get_contacts()
+        for contact in all_contacts:
+            if "link" in contact.actor0.name and contact.actor1.name == self.manipulated_object.name:
+                self.object_hand_contact = True
+                break
+            elif "link" in contact.actor1.name and contact.actor0.name == self.manipulated_object.name:
+                self.object_hand_contact = True
+                break
+
+        return self.object_hand_contact
+    
+    def _object_target_distance(self):
         # check the x-y position of the object against the target
         object_xy = self.manipulated_object.pose.p[:-1]
         target_xy = self.target_pose.p[:-1]
         dist_xy = np.linalg.norm(object_xy - target_xy)
-        #close_to_target = dist_xy <= 0.25
 
-        return dist_xy <= 0.15
+        return dist_xy
+
+    def _is_close_to_target(self):
+        close_to_target = self._object_target_distance() <= 0.25
+
+        return close_to_target
     
     def _is_object_lifted(self):
         # check the x-y position of the object against the target
@@ -214,22 +232,7 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
 
         return self.is_object_lifted
     
-    def _is_object_still(self):
-        # check if the object is close to still
-        velocity_norm = np.linalg.norm(self.manipulated_object.velocity)
-        object_is_still = velocity_norm <= 1e-6
-
-        return object_is_still
-    
     def _is_success(self):
-
-        # print({
-        #     "dist_xy": f"{dist_xy:.6}",
-        #     "velocity_norm": f"{velocity_norm:.6f}",
-        #     "object_plate_contact": object_plate_contact,
-        #     "close_to_target": close_to_target,
-        #     "object_is_still": object_is_still,
-        # })
 
         return self._is_object_plate_contact() and self._is_close_to_target()
      

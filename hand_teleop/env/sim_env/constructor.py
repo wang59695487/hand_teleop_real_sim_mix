@@ -117,7 +117,7 @@ def add_random_scene_light(scene: sapien.Scene, renderer: sapien.VulkanRenderer,
     # ktx_path = asset_dir / "misc" / "ktx" / "day.ktx"
     # scene.set_environment_map(str(ktx_path))
 
-    var = randomness_scale * 0.1
+    var = randomness_scale * 0.2
     directions = []
     for i in range(3):
         direction = R.random().as_euler('xyz', degrees=False)
@@ -127,7 +127,7 @@ def add_random_scene_light(scene: sapien.Scene, renderer: sapien.VulkanRenderer,
 
     scene.add_directional_light(directions[0], random.uniform(0.5-var, 0.5+var,size=3), shadow=cast_shadow)
     scene.add_directional_light(directions[1], random.uniform(0.8-var, 0.8+var, size=3), shadow=False)
-    scene.add_spot_light(R.random().as_euler('zxy', degrees=False), direction=directions[2], inner_fov=0.3, outer_fov=1.0,
+    scene.add_spot_light(np.array([0, 0, random.uniform(1.5-var, 1.5+var)]), direction=directions[2], inner_fov=0.3, outer_fov=1.0,
                          color=np.array(random.uniform(0.5-var, 0.5+var, size=3)), shadow=False)
 
     visual_material = renderer.create_material()

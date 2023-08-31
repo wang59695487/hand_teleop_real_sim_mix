@@ -897,15 +897,15 @@ class InsertObjectEnvPlayer(DataPlayer):
 
         return baked_data
     
-def average_angle_handqpos(hand_qpos):
+def handqpos2angle(hand_qpos):
     delta_angles = []
-    for i in range(0,len(hand_qpos),4):
-        qpos = hand_qpos[i:i+4]
-        delta_axis, delta_angle = transforms3d.quaternions.quat2axangle(qpos)
+    for i in range(0,len(hand_qpos)):
+        delta_angle = hand_qpos[i]
         if delta_angle > np.pi:
             delta_angle = 2 * np.pi - delta_angle
-        delta_angles.append(delta_angle)
-    return np.mean(delta_angles)
+        delta_angle = delta_angle/np.pi*180
+        delta_angles.append(np.abs(delta_angle))
+    return delta_angles
 
 def bake_visual_demonstration_test(retarget=False):
     from pathlib import Path
@@ -913,7 +913,7 @@ def bake_visual_demonstration_test(retarget=False):
     # Recorder
     shutil.rmtree('./temp/demos/player', ignore_errors=True)
     os.makedirs('./temp/demos/player')
-    path = "./sim/raw_data/pick_place_mustard_bottle/mustard_bottle_0030.pickle"
+    path = "./sim/raw_data/pick_place_mustard_bottle/mustard_bottle_0041.pickle"
     #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0011.pickle"
     #path = "sim/raw_data/pick_place_sugar_box/sugar_box_0050.pickle"
     #path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
@@ -941,7 +941,7 @@ def bake_visual_demonstration_test(retarget=False):
     env_params = meta_data["env_kwargs"]
     env_params['robot_name'] = robot_name
     env_params['use_visual_obs'] = use_visual_obs
-    env_params['use_gui'] = True
+    env_params['use_gui'] = False
     # env_params = dict(object_name=meta_data["env_kwargs"]['object_name'], object_scale=meta_data["env_kwargs"]['object_scale'], robot_name=robot_name, 
     #                  rotation_reward_weight=rotation_reward_weight, constant_object_state=False, randomness_scale=meta_data["env_kwargs"]['randomness_scale'], 
     #                  use_visual_obs=use_visual_obs, use_gui=False)
@@ -992,12 +992,12 @@ def bake_visual_demonstration_test(retarget=False):
                     joint.set_drive_property(*(1 * finger_control_params), mode="force")
             env.rl_step = env.simple_sim_step
     env.reset()
-    viewer = env.render(mode="human")
-    env.viewer = viewer
-    # viewer.set_camera_xyz(0.4, 0.2, 0.5)
-    # viewer.set_camera_rpy(0, -np.pi/4, 5*np.pi/6)
-    viewer.set_camera_xyz(-0.6, 0.6, 0.6)
-    viewer.set_camera_rpy(0, -np.pi/6, np.pi/4)  
+    # viewer = env.render(mode="human")
+    # env.viewer = viewer
+    # # viewer.set_camera_xyz(0.4, 0.2, 0.5)
+    # # viewer.set_camera_rpy(0, -np.pi/4, 5*np.pi/6)
+    # viewer.set_camera_xyz(-0.6, 0.6, 0.6)
+    # viewer.set_camera_rpy(0, -np.pi/6, np.pi/4)  
 
     
     real_camera_cfg = {
@@ -1069,8 +1069,12 @@ def bake_visual_demonstration_test(retarget=False):
 
     ee_pose = baked_data["ee_pose"][0]
     hand_qpos_prev = baked_data["action"][0][env.arm_dof:]
-    frame_skip=4
+    dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
+
+    frame_skip=1
     i = 0
+    is_hand_grasp = False
+    print("init_hand_qpos",hand_qpos_prev)
     for idx in range(0,len(baked_data["obs"]),frame_skip):
         # NOTE: robot.get_qpos() version
         if idx < len(baked_data['obs'])-frame_skip:
@@ -1082,15 +1086,39 @@ def bake_visual_demonstration_test(retarget=False):
             
             delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
 
-            if ee_pose_delta < 0.0025 and average_angle_handqpos(delta_hand_qpos)<=np.pi/180 :
-                #print("!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!")
+            object_pose = env.manipulated_object.pose.p
+            palm_pose = env.ee_link.get_pose()
+
+            dist_object_hand = np.linalg.norm(object_pose - ee_pose_next[:3])
+            delta_object_hand = dist_object_hand_prev - dist_object_hand
+
+            if ee_pose_delta < 0.005 and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
+                # print("delta_angle",np.mean(handqpos2angle(delta_hand_qpos)))
+                # print("!!!!!!!!!!!!!!!!!!!!!!skip1!!!!!!!!!!!!!!!!!!!!!")
                 continue
 
             else:
                 ee_pose = ee_pose_next
                 hand_qpos_prev = hand_qpos
+                # if dist_object_hand_prev < 0.18 and dist_object_hand_prev < 0.15:
+                if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
+                    is_hand_grasp = True
+                if dist_object_hand_prev < 0.25 and not(is_hand_grasp):
+                    print("Step: ",idx)
+                    print("object_z_pose",object_pose[2])
+                    if delta_object_hand < 0.0065:
+                        print("!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!")
+                        continue
+                
+                if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
+                    print("hand_qpos",hand_qpos)
+                    hand_qpos = hand_qpos*0.8
 
-                palm_pose = env.ee_link.get_pose()
+                # print("ee_pose_delta",ee_pose_delta)
+                # print("delta_angle",np.mean(handqpos2angle(delta_hand_qpos)))
+                # print("object_target_pose",env._is_close_to_target())
+                # print("object_zpose", object_pose[2])
+
                 palm_pose = robot_pose.inv() * palm_pose
 
                 palm_next_pose = sapien.Pose(ee_pose_next[0:3], ee_pose_next[3:7])
@@ -1107,22 +1135,19 @@ def bake_visual_demonstration_test(retarget=False):
                 palm_jacobian = env.kinematic_model.compute_end_link_spatial_jacobian(env.robot.get_qpos()[:env.arm_dof])
                 arm_qvel = compute_inverse_kinematics(delta_pose, palm_jacobian)[:env.arm_dof]
                 arm_qpos = arm_qvel + env.robot.get_qpos()[:env.arm_dof]
-                hand_qpos = action[env.arm_dof:]
+        
                 target_qpos = np.concatenate([arm_qpos, hand_qpos])
                 visual_baked["obs"].append(env.get_observation())
                 visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                 _, _, _, info = env.step(target_qpos)
-                env.render()
+                # env.render()
 
+                dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
+                
                 rgb = env.get_observation()["relocate_view-rgb"].cpu().detach().numpy()
                 rgb_pic = (rgb * 255).astype(np.uint8)
                 imageio.imsave("./temp/demos/player/relocate-rgb_{}.png".format(i), rgb_pic)
                 i += 1
-               
-                #print("delta_angle",env.object_total_rotate_angle)
-                # print(env.get_observation()["relocate_view-rgb"].shape)
-                #robot_qpos = np.concatenate([env.robot.get_qpos(),env.ee_link.get_pose().p,env.ee_link.get_pose().q])
-                #print("robot_qpos",robot_qpos)
 
 def bake_visual_real_demonstration_test(retarget=False):
     from pathlib import Path
@@ -1329,14 +1354,18 @@ def bake_visual_real_demonstration_test(retarget=False):
             hand_qpos = baked_data[idx]["teleop_cmd"][env.arm_dof:]
             delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
 
-            if ee_pose_delta < 0.0025 and average_angle_handqpos(delta_hand_qpos)*np.pi/180 <= 1:
+            object_pose = env.manipulated_object.pose.p
+            palm_pose = env.ee_link.get_pose()
+
+            dist_object_hand = np.linalg.norm(object_pose - palm_pose.p)
+
+            if ee_pose_delta < 0.0015 and average_angle_handqpos(delta_hand_qpos)*np.pi/180 <= 1:
                 #print("!!!!!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                 continue
             else:
                 ee_pose = ee_pose_next
                 hand_qpos_prev = hand_qpos
 
-                palm_pose = env.ee_link.get_pose()
                 palm_pose = robot_pose.inv() * palm_pose
                 
                 palm_next_pose = sapien.Pose(ee_pose_next[0:3],ee_pose_next[3:7])
@@ -1365,6 +1394,7 @@ def bake_visual_real_demonstration_test(retarget=False):
                 visual_baked["obs"].append(env.get_observation())
                 visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                 _, _, _, info = env.step(target_qpos)
+                print("dist_object_hand: ",dist_object_hand)
                 #print("dof",env.robot.dof)
                 #print("target_qpos: ", target_qpos)
                 env.render()  
