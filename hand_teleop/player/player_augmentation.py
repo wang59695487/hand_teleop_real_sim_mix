@@ -234,7 +234,7 @@ def bake_visual_demonstration_test_augmented(all_data, init_pose_aug, retarget=F
     return info_success, visual_baked, meta_data
 
 
-def generate_sim_aug(all_data, init_pose_aug, retarget=False):
+def generate_sim_aug(all_data, init_pose_aug, retarget=False, frame_skip=1):
 
     from pathlib import Path
     # Recorder
@@ -395,12 +395,12 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
     hand_qpos_prev = baked_data["action"][0][env.arm_dof:]
     dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
 
-    for idx in tqdm(range(len(baked_data["obs"]))):
+    for idx in tqdm(range(0,len(baked_data["obs"]),frame_skip)):
         action = baked_data["action"][idx]
         ee_pose = baked_data["ee_pose"][idx]
         # NOTE: robot.get_qpos() version
-        if idx != len(baked_data['obs'])-1:
-            ee_pose_next = baked_data["ee_pose"][idx + 1]
+        if idx < len(baked_data['obs'])-frame_skip:
+            ee_pose_next = baked_data["ee_pose"][idx + frame_skip]
             ee_pose_delta = np.sqrt(np.sum((ee_pose_next[:3] - ee_pose[:3])**2))
             hand_qpos = baked_data["action"][idx][env.arm_dof:]
             
@@ -412,10 +412,10 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
             dist_object_hand = np.linalg.norm(object_pose - ee_pose_next[:3])
             delta_object_hand = dist_object_hand_prev - dist_object_hand
 
-            if ee_pose_delta < 0.0005 and  np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
+            if ee_pose_delta < 0.00025 and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
                 #print("!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!")
                 continue
-
+                
             else:
 
                 ee_pose = ee_pose_next
@@ -424,12 +424,12 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
                 if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
                     is_hand_grasp = True
                 
-                if dist_object_hand_prev < 0.25 and not(is_hand_grasp):
-                    if delta_object_hand < 0.002:
+                if dist_object_hand_prev < 0.3 and not(is_hand_grasp):
+                    if delta_object_hand < 0:
                         continue
 
                 if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
-                    hand_qpos = hand_qpos*0.8
+                    hand_qpos = hand_qpos*0.9
               
                 palm_pose = robot_pose.inv() * palm_pose
 
@@ -457,13 +457,18 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False):
                 _, _, _, info = env.step(target_qpos)
 
                 dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
+                
+                if task_name == 'pick_place':
+                    info_success = info["is_object_lifted"] and env._object_target_distance() <= 0.2 and env._is_object_plate_contact() \
+                                    and env.ee_link.get_pose().p[-1] > 0.25 and not(env._is_object_hand_contact())
+                if info_success:
+                    break
                 #env.render()
     
     meta_data["env_kwargs"]['task_name'] = task_name
     augment_data = {'data': data, 'meta_data': meta_data}
 
-    if task_name == 'pick_place':
-        info_success = info["is_object_lifted"] and info["success"]
+    
     
     for i in range(len(rgb_pics)):
         rgb = rgb_pics[i]
@@ -486,7 +491,8 @@ def player_augmenting(args):
     for demo_id, file_name in enumerate(demo_files):
 
         num_test = 0
-
+        if demo_id == 0:
+            continue
         with open(file_name, 'rb') as file:
             demo = pickle.load(file)
 
@@ -509,7 +515,7 @@ def player_augmenting(args):
             #     last_num = sorted([int(x.replace(".pickle", "").split("_")[-1]) for x in pkl_files])[-1]
             #     num_test = str(last_num + 1).zfill(4)
                 
-            info_success, data, video = generate_sim_aug(all_data=all_data, init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]),retarget=args['retarget'])
+            info_success, data, video = generate_sim_aug(all_data=all_data, init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]),frame_skip=args['frame_skip'], retarget=args['retarget'])
             #imageio.mimsave(f"./temp/demos/aug_{args['object_name']}/demo_{demo_id+1}_{num_test}_x{x:.2f}_y{y:.2f}.mp4", video, fps=120)
             if info_success:
 
@@ -535,6 +541,7 @@ def parse_args():
     parser.add_argument("--task-name", required=True, type=str)
     parser.add_argument("--object-name", required=True, type=str)
     parser.add_argument("--kinematic-aug", default=100, type=int)
+    parser.add_argument("--frame-skip", default=1, type=int)
     parser.add_argument("--retarget", default=False, type=bool)
 
     args = parser.parse_args()
@@ -551,6 +558,7 @@ if __name__ == '__main__':
         'task_name': args.task_name,
         'object_name': args.object_name,
         'kinematic_aug': args.kinematic_aug,
+        'frame_skip': args.frame_skip,
         'retarget': args.retarget
     }
 
