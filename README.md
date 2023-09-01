@@ -70,3 +70,30 @@ python main/train_real_sim.py \
 
 
 The `eval-freq` argument specifies the frequency of evaluating and saving the model. which is 200 epochs in this case.
+
+nohup python hand_teleop/player/player_augmentation.py \
+      --task-name=pick_place \
+      --object-name=mustard_bottle \
+      --delta-object-hand-bound=0.002 \
+      --delta-ee-pose-bound=0.0005 \
+      --detection-bound=0.25 \
+      --seed=1 \
+      --frame-skip=1 > ./logs/play_aug2 2>&1 &
+
+nohup python hand_teleop/player/player_augmentation.py \
+      --task-name=pick_place \
+      --object-name=sugar_box \
+      --delta-object-hand-bound=0.002 \
+      --delta-ee-pose-bound=0.00025 \
+      --detection-bound=0.25 \
+      --seed=1 \
+      --frame-skip=1 > ./logs/play_aug2 2>&1 &
+
+nohup python hand_teleop/player/player_augmentation.py \
+      --task-name=pick_place \
+      --object-name=tomato_soup_can \
+      --delta-object-hand-bound=0.002 \
+      --delta-ee-pose-bound=0.0005 \
+      --detection-bound=0.25 \
+      --seed=1 \
+      --frame-skip=1 > ./logs/play_aug3 2>&1 &

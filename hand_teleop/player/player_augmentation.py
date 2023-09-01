@@ -36,205 +36,7 @@ def compute_inverse_kinematics(delta_pose_world, palm_jacobian, damping=0.05):
 
     return delta_qpos
 
-def bake_visual_demonstration_test_augmented(all_data, init_pose_aug, retarget=False):
-    from pathlib import Path
-    # Recorder
-    #path = f"./sim/raw_data/{task_name}_{object_name}/{object_name}_{demo_index:04d}.pickle"
-    #path = "sim/raw_data/pick_place_tomato_soup_can/tomato_soup_can_0011.pickle"
-    #path = "sim/raw_data/pick_place_sugar_box/sugar_box_0050.pickle"
-    #path = "sim/raw_data/dclaw/dclaw_3x_0001.pickle"
-    #all_data = np.load(path, allow_pickle=True)
-    meta_data = all_data["meta_data"]
-    task_name = meta_data["env_kwargs"]['task_name']
-    meta_data["env_kwargs"].pop('task_name')
-    data = all_data["data"]
-    use_visual_obs = True
-    if not retarget:
-        robot_name = meta_data["robot_name"]
-    else:
-        robot_name = "allegro_hand_free"
-    if 'allegro' in robot_name:
-        if 'finger_control_params' in meta_data.keys():
-            finger_control_params = meta_data['finger_control_params']
-        if 'root_rotation_control_params' in meta_data.keys():
-            root_rotation_control_params = meta_data['root_rotation_control_params']
-        if 'root_translation_control_params' in meta_data.keys():
-            root_translation_control_params = meta_data['root_translation_control_params']
-        if 'robot_arm_control_params' in meta_data.keys():
-            robot_arm_control_params = meta_data['robot_arm_control_params']       
-
-    # Create env
-    env_params = meta_data["env_kwargs"]
-    env_params['robot_name'] = robot_name
-    env_params['use_visual_obs'] = use_visual_obs
-    env_params['use_gui'] = False
-    # env_params = dict(object_name=meta_data["env_kwargs"]['object_name'], object_scale=meta_data["env_kwargs"]['object_scale'], robot_name=robot_name, 
-    #                  rotation_reward_weight=rotation_reward_weight, constant_object_state=False, randomness_scale=meta_data["env_kwargs"]['randomness_scale'], 
-    #                  use_visual_obs=use_visual_obs, use_gui=False)
-    # Specify rendering device if the computing device is given
-    if "CUDA_VISIBLE_DEVICES" in os.environ:
-        env_params["device"] = "cuda"
-    if robot_name == "mano":
-        env_params["zero_joint_pos"] = meta_data["zero_joint_pos"]
-    else:
-        env_params["zero_joint_pos"] = None
-    if 'init_obj_pos' in meta_data["env_kwargs"].keys():
-        env_params['init_obj_pos'] = meta_data["env_kwargs"]['init_obj_pos']
-    if 'init_target_pos' in meta_data["env_kwargs"].keys():
-        env_params['init_target_pos'] = meta_data["env_kwargs"]['init_target_pos']
-    if task_name == 'pick_place':
-        env = PickPlaceRLEnv(**env_params)
-    elif task_name == 'dclaw':
-        env = DClawRLEnv(**env_params)
-    elif task_name == 'hammer':
-        env = HammerRLEnv(**env_params)
-    elif task_name == 'table_door':
-        env = TableDoorRLEnv(**env_params)
-    elif task_name == 'insert_object':
-        env = InsertObjectRLEnv(**env_params)
-    elif task_name == 'mug_flip':
-        env = MugFlipRLEnv(**env_params)
-    else:
-        raise NotImplementedError
-
-    if not retarget:
-        if "free" in robot_name:
-            for joint in env.robot.get_active_joints():
-                name = joint.get_name()
-                if "x_joint" in name or "y_joint" in name or "z_joint" in name:
-                    joint.set_drive_property(*(1 * root_translation_control_params), mode="acceleration")
-                elif "x_rotation_joint" in name or "y_rotation_joint" in name or "z_rotation_joint" in name:
-                    joint.set_drive_property(*(1 * root_rotation_control_params), mode="acceleration")
-                else:
-                    joint.set_drive_property(*(finger_control_params), mode="acceleration")
-            env.rl_step = env.simple_sim_step
-        elif "xarm" in robot_name:
-            arm_joint_names = [f"joint{i}" for i in range(1, 8)]
-            for joint in env.robot.get_active_joints():
-                name = joint.get_name()
-                if name in arm_joint_names:
-                    joint.set_drive_property(*(1 * robot_arm_control_params), mode="force")
-                else:
-                    joint.set_drive_property(*(1 * finger_control_params), mode="force")
-            env.rl_step = env.simple_sim_step
-            
-    env.reset()
-
-    real_camera_cfg = {
-        "relocate_view": dict( pose=lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(224, 224))
-    }
-    
-    if task_name == 'table_door':
-         camera_cfg = {
-        "relocate_view": dict(position=np.array([-0.25, -0.25, 0.55]), look_at_dir=np.array([0.25, 0.25, -0.45]),
-                                right_dir=np.array([1, -1, 0]), fov=np.deg2rad(69.4), resolution=(224, 224))
-        }   
-         
-    env.setup_camera_from_config(real_camera_cfg)
-
-    # Specify modality
-    empty_info = {}  # level empty dict for now, reserved for future
-    camera_info = {"relocate_view": {"rgb": empty_info, "segmentation": empty_info}}
-    env.setup_visual_obs_config(camera_info)
-
-    # Player
-    if task_name == 'pick_place':
-        player = PickPlaceEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-        meta_data["env_kwargs"]['init_obj_pos'] = init_pose_aug * meta_data["env_kwargs"]['init_obj_pos']
-        meta_data["env_kwargs"]['init_target_pos'] = init_pose_aug * meta_data["env_kwargs"]['init_target_pos']
-    elif task_name == 'dclaw':
-        player = DcLawEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'hammer':
-        player = HammerEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'table_door':
-        player = TableDoorEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'insert_object':
-        player = InsertObjectEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    elif task_name == 'mug_flip':
-        player = FlipMugEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-    else:
-        raise NotImplementedError
-
-    if retarget:
-        link_names = ["palm_center", "link_15.0_tip", "link_3.0_tip", "link_7.0_tip", "link_11.0_tip", "link_14.0",
-                    "link_2.0", "link_6.0", "link_10.0"]
-        indices = [0, 1, 2, 3, 5, 6, 7, 8]
-        joint_names = [joint.get_name() for joint in env.robot.get_active_joints()]
-        retargeting = PositionRetargeting(env.robot, joint_names, link_names, has_global_pose_limits=False,
-                                        has_joint_limits=True)
-        baked_data = player.bake_demonstration(retargeting, method="tip_middle", indices=indices)
-    else:
-        baked_data = player.bake_demonstration(init_pose_aug = init_pose_aug)
-
-    visual_baked = dict(obs=[], action=[], robot_qpos=[])
-    env.reset()
-    player.scene.unpack(player.get_sim_data(0))
-
-    env.robot.set_qpos(baked_data["robot_qpos"][0])
-    if baked_data["robot_qvel"] != []:
-        env.robot.set_qvel(baked_data["robot_qvel"][0])
-
-    robot_pose = env.robot.get_pose()
-
-    ee_pose = baked_data["ee_pose"][0]
-    hand_qpos_prev = baked_data["action"][0][env.arm_dof:]
-
-    ### Aug obj pose ###
-    env.manipulated_object.set_pose(meta_data["env_kwargs"]['init_obj_pos'])
-
-    if task_name =='pick_place':
-        env.plate.set_pose(meta_data["env_kwargs"]['init_target_pos'])
-
-    for idx in tqdm(range(len(baked_data["obs"]))):
-        action = baked_data["action"][idx]
-        ee_pose = baked_data["ee_pose"][idx]
-        # NOTE: robot.get_qpos() version
-        if idx != len(baked_data['obs'])-1:
-            ee_pose_next = baked_data["ee_pose"][idx + 1]
-            ee_pose_delta = np.sqrt(np.sum((ee_pose_next[:3] - ee_pose[:3])**2))
-            hand_qpos = baked_data["action"][idx][env.arm_dof:]
-            
-            delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
-            if ee_pose_delta < 0.0005 and average_angle_handqpos(delta_hand_qpos)<=np.pi/180 :
-                #print("!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!")
-                continue
-
-            else:
-                ee_pose = ee_pose_next
-                hand_qpos_prev = hand_qpos
-
-                palm_pose = env.ee_link.get_pose()
-                palm_pose = robot_pose.inv() * palm_pose
-
-                palm_next_pose = sapien.Pose(ee_pose_next[0:3], ee_pose_next[3:7])
-                palm_next_pose = robot_pose.inv() * palm_next_pose
-
-                palm_delta_pose = palm_pose.inv() * palm_next_pose
-                delta_axis, delta_angle = transforms3d.quaternions.quat2axangle(palm_delta_pose.q)
-                if delta_angle > np.pi:
-                    delta_angle = 2 * np.pi - delta_angle
-                    delta_axis = -delta_axis
-                delta_axis_world = palm_pose.to_transformation_matrix()[:3, :3] @ delta_axis
-                delta_pose = np.concatenate([palm_next_pose.p - palm_pose.p, delta_axis_world * delta_angle])
-
-                palm_jacobian = env.kinematic_model.compute_end_link_spatial_jacobian(env.robot.get_qpos()[:env.arm_dof])
-                arm_qvel = compute_inverse_kinematics(delta_pose, palm_jacobian)[:env.arm_dof]
-                arm_qpos = arm_qvel + env.robot.get_qpos()[:env.arm_dof]
-                hand_qpos = action[env.arm_dof:]
-                target_qpos = np.concatenate([arm_qpos, hand_qpos])
-                visual_baked["obs"].append(env.get_observation())
-                visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
-                visual_baked["robot_qpos"].append(np.concatenate([env.robot.get_qpos(),
-                                                      env.ee_link.get_pose().p,env.ee_link.get_pose().q]))
-                _, _, _, info = env.step(target_qpos)
-
-    if task_name == 'pick_place':
-        info_success = info["is_object_lifted"] and info["success"] and info['_is_close_to_target'] <= 0.15
-
-    return info_success, visual_baked, meta_data
-
-
-def generate_sim_aug(all_data, init_pose_aug, retarget=False, frame_skip=1):
+def generate_sim_aug(args, all_data, init_pose_aug, retarget=False, frame_skip=1):
 
     from pathlib import Path
     # Recorder
@@ -413,7 +215,7 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False, frame_skip=1):
             dist_object_hand = np.linalg.norm(object_pose - ee_pose_next[:3])
             delta_object_hand = dist_object_hand_prev - dist_object_hand
 
-            if ee_pose_delta < 0.0005 and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
+            if ee_pose_delta < args['delta_ee_pose_bound'] and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
                 #print("!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!")
                 continue
                 
@@ -422,11 +224,12 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False, frame_skip=1):
                 ee_pose = ee_pose_next
                 hand_qpos_prev = hand_qpos
 
-                if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
+                if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < args['detection_bound']:
                     is_hand_grasp = True
                 
-                if dist_object_hand_prev < 0.2 and not(is_hand_grasp):
-                    if delta_object_hand < 0.002:
+                if dist_object_hand_prev < args['detection_bound'] and not(is_hand_grasp):
+
+                    if delta_object_hand < args['delta_object_hand_bound']:
                         continue
 
                 if env._object_target_distance() < 0.25 and object_pose[2] < 0.2:
@@ -519,7 +322,7 @@ def player_augmenting(args):
             #     last_num = sorted([int(x.replace(".pickle", "").split("_")[-1]) for x in pkl_files])[-1]
             #     num_test = str(last_num + 1).zfill(4)
                 
-            info_success, data, video = generate_sim_aug(all_data=all_data, init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]),frame_skip=args['frame_skip'], retarget=args['retarget'])
+            info_success, data, video = generate_sim_aug(args, all_data=all_data, init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]),frame_skip=args['frame_skip'], retarget=args['retarget'])
             #imageio.mimsave(f"./temp/demos/aug_{args['object_name']}/demo_{demo_id+1}_{num_test}_x{x:.2f}_y{y:.2f}.mp4", video, fps=120)
             if info_success:
 
@@ -547,6 +350,9 @@ def parse_args():
     parser.add_argument("--kinematic-aug", default=100, type=int)
     parser.add_argument("--frame-skip", default=1, type=int)
     parser.add_argument("--retarget", default=False, type=bool)
+    parser.add_argument("--delta-object-hand-bound", default=0, type=float)
+    parser.add_argument("--delta-ee-pose-bound", default=0, type=float)
+    parser.add_argument("--detection-bound", default=0.25, type=float)
 
     args = parser.parse_args()
 
@@ -563,6 +369,9 @@ if __name__ == '__main__':
         'object_name': args.object_name,
         'kinematic_aug': args.kinematic_aug,
         'frame_skip': args.frame_skip,
+        'delta_object_hand_bound': args.delta_object_hand_bound,
+        'delta_ee_pose_bound': args.delta_ee_pose_bound,
+        'detection_bound': args.detection_bound,
         'retarget': args.retarget
     }
 
