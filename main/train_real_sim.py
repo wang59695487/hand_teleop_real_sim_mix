@@ -358,6 +358,14 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
         #bc_loss = loss_real + loss_sim
         agent.update(loss_sim, L, epoch)
         loss_train_sim += loss_sim.detach().cpu().item()
+    
+    # for _ in tqdm(range(it_per_epoch_sim)):
+    #     loss_real = compute_loss(agent,bc_train_dataloader_real,L,epoch)
+    #     loss_sim = compute_loss(agent,bc_train_dataloader_sim,L,epoch)
+    #     bc_loss = loss_real + loss_sim
+    #     agent.update(bc_loss, L, epoch)
+    #     loss_train_real += loss_real.detach().cpu().item()
+    #     loss_train_sim += loss_sim.detach().cpu().item()
 
     agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
 
@@ -384,7 +392,7 @@ def train_in_one_epoch(agent, it_per_epoch, bc_train_dataloader, bc_validation_d
 def train_real_sim(args):
     # read and prepare data
     Prepared_Data = prepare_real_sim_data(args['dataset_folder'],
-        args["backbone_type"], args['real_batch_size'],  args['sim_batch_size'], args['val_ratio'], seed = 20230806)
+        args["backbone_type"], args['real_batch_size'],  args['sim_batch_size'], args['val_ratio'], seed = 20230901)
     print('Data prepared') 
 
     if Prepared_Data['data_type'] == "real_sim":
@@ -460,11 +468,11 @@ def train_real_sim(args):
             
             if (epoch + 1) % args["eval_freq"] == 0 and (epoch+1) >= args["eval_start_epoch"]:
                 #total_steps = x_steps * y_steps = 4 * 5 = 20
-                if Prepared_Data['data_type'] != "real":
-                    avg_success = eval_in_env(args, agent, log_dir, epoch + 1, 4, 5)
-                    metrics["avg_success"] = avg_success
-                    if avg_success > best_success:
-                        agent.save(os.path.join(log_dir, f"epoch_best.pt"), args)
+                # if Prepared_Data['data_type'] != "real":
+                #     avg_success = eval_in_env(args, agent, log_dir, epoch + 1, 4, 5)
+                #     metrics["avg_success"] = avg_success
+                #     if avg_success > best_success:
+                #         agent.save(os.path.join(log_dir, f"epoch_best.pt"), args)
 
                 agent.save(os.path.join(log_dir, f"epoch_{epoch + 1}.pt"), args)
                 
@@ -475,12 +483,12 @@ def train_real_sim(args):
                 train_inv=args['train_inv'])
             wandb.log(metrics)
         
-        if Prepared_Data['data_type'] != "real":
-            agent.load(os.path.join(log_dir, "epoch_best.pt"))
-            agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
-            final_success = eval_in_env(args, agent, log_dir, "best", 10, 10)
-            wandb.log({"final_success": final_success})
-            print(f"Final success rate: {final_success:.4f}")
+        # if Prepared_Data['data_type'] != "real":
+        #     agent.load(os.path.join(log_dir, "epoch_best.pt"))
+        #     agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
+        #     final_success = eval_in_env(args, agent, log_dir, "best", 10, 10)
+        #     wandb.log({"final_success": final_success})
+        #     print(f"Final success rate: {final_success:.4f}")
         
         wandb.finish()
 
