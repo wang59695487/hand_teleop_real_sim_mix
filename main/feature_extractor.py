@@ -309,14 +309,14 @@ def generate_features(visual_baked, model, preprocess, backbone_type="ResNet34",
   aug_concat_robot_qpos = []
   aug_concat_obs = []
   aug_concat_action = []
-  for i in tqdm(range(num_data_aug)):
-
-    features = []
+  features = []
     
-    for img in tqdm(raw_imgs):
-      # img = torch.from_numpy(np.moveaxis(img,-1,0)[None, ...])
-      # channel to the first dimension
-      img = img.permute((2,0,1))
+  for raw_img in tqdm(raw_imgs):
+    # img = torch.from_numpy(np.moveaxis(img,-1,0)[None, ...])
+    # channel to the first dimension
+    concat_feature = []
+    for i in range(num_data_aug):
+      img = raw_img.permute((2,0,1))
       if i != 0:
         img = augmentation_img(img,augmenter)
       img = preprocess(img)
@@ -324,12 +324,13 @@ def generate_features(visual_baked, model, preprocess, backbone_type="ResNet34",
       img = img.to(device)
       with torch.no_grad():
           feature = model(img)
-      features.append(feature.cpu().detach().numpy().reshape(-1))
+      concat_feature.extend(feature.cpu().detach().numpy().reshape(-1))
+    features.append(concat_feature)
 
-    concatenated_obs, concatenated_robot_qpos = concate_features(features,stack_robot_qpos)
-    aug_concat_robot_qpos.extend(concatenated_robot_qpos)
-    aug_concat_obs.extend(concatenated_obs)
-    aug_concat_action.extend(target_actions)
+  concatenated_obs, concatenated_robot_qpos = concate_features(features,stack_robot_qpos)
+  aug_concat_robot_qpos.extend(concatenated_robot_qpos)
+  aug_concat_obs.extend(concatenated_obs)
+  aug_concat_action.extend(target_actions)
 
   visual_dataset["action"] = aug_concat_action
   visual_dataset["robot_qpos"] = aug_concat_robot_qpos
