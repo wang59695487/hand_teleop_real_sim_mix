@@ -455,6 +455,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
     else:
         stop_frame = 0
+
         for idx in range(0,len(baked_data['obs']),frame_skip):
             # NOTE: robot.get_qpos() version
             if idx < len(baked_data['obs'])-frame_skip:
@@ -471,6 +472,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
                 if ee_pose_delta <= args['delta_ee_pose_bound'] and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
                     continue
+                
                 else:
 
                     ee_pose = ee_pose_next
@@ -478,12 +480,12 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
                     if task_name == "pick_place":
 
-                    if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
-                        is_hand_grasp = True
-                    
-                    #################### filter human noise #####################
-                    if dist_object_hand_prev < 0.25 and not(is_hand_grasp) and delta_object_hand < 0.002:
-                        continue
+                        if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
+                            is_hand_grasp = True
+                        
+                        #################### filter human noise #####################
+                        if dist_object_hand_prev < 0.25 and not(is_hand_grasp) and delta_object_hand < 0.002:
+                            continue
 
                         if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
                             hand_qpos = hand_qpos*0.9
