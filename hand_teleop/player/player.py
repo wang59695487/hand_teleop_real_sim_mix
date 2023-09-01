@@ -913,7 +913,7 @@ def bake_visual_demonstration_test(retarget=False):
     # Recorder
     shutil.rmtree('./temp/demos/player', ignore_errors=True)
     os.makedirs('./temp/demos/player')
-    path = "./sim/raw_data/pick_place_mustard_bottle/mustard_bottle_0041.pickle"
+    path = "./sim/raw_data/pick_place_mustard_bottle/mustard_bottle_0001.pickle"
     #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0011.pickle"
     #path = "sim/raw_data/pick_place_sugar_box/sugar_box_0050.pickle"
     #path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
@@ -941,7 +941,7 @@ def bake_visual_demonstration_test(retarget=False):
     env_params = meta_data["env_kwargs"]
     env_params['robot_name'] = robot_name
     env_params['use_visual_obs'] = use_visual_obs
-    env_params['use_gui'] = False
+    env_params['use_gui'] = True
     # env_params = dict(object_name=meta_data["env_kwargs"]['object_name'], object_scale=meta_data["env_kwargs"]['object_scale'], robot_name=robot_name, 
     #                  rotation_reward_weight=rotation_reward_weight, constant_object_state=False, randomness_scale=meta_data["env_kwargs"]['randomness_scale'], 
     #                  use_visual_obs=use_visual_obs, use_gui=False)
@@ -992,12 +992,12 @@ def bake_visual_demonstration_test(retarget=False):
                     joint.set_drive_property(*(1 * finger_control_params), mode="force")
             env.rl_step = env.simple_sim_step
     env.reset()
-    # viewer = env.render(mode="human")
-    # env.viewer = viewer
-    # # viewer.set_camera_xyz(0.4, 0.2, 0.5)
-    # # viewer.set_camera_rpy(0, -np.pi/4, 5*np.pi/6)
-    # viewer.set_camera_xyz(-0.6, 0.6, 0.6)
-    # viewer.set_camera_rpy(0, -np.pi/6, np.pi/4)  
+    viewer = env.render(mode="human")
+    env.viewer = viewer
+    # viewer.set_camera_xyz(0.4, 0.2, 0.5)
+    # viewer.set_camera_rpy(0, -np.pi/4, 5*np.pi/6)
+    viewer.set_camera_xyz(-0.6, 0.6, 0.6)
+    viewer.set_camera_rpy(0, -np.pi/6, np.pi/4)  
 
     
     real_camera_cfg = {
@@ -1072,14 +1072,12 @@ def bake_visual_demonstration_test(retarget=False):
     dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
 
     frame_skip=1
-    i = 0
+    rgb_pics = []
     is_hand_grasp = False
-    print("init_hand_qpos",hand_qpos_prev)
     for idx in range(0,len(baked_data["obs"]),frame_skip):
         # NOTE: robot.get_qpos() version
         if idx < len(baked_data['obs'])-frame_skip:
 
-            action = baked_data["action"][idx]
             ee_pose_next = baked_data["ee_pose"][idx + frame_skip]
             ee_pose_delta = np.sqrt(np.sum((ee_pose_next[:3] - ee_pose[:3])**2))
             hand_qpos = baked_data["action"][idx][env.arm_dof:]
@@ -1092,7 +1090,7 @@ def bake_visual_demonstration_test(retarget=False):
             dist_object_hand = np.linalg.norm(object_pose - ee_pose_next[:3])
             delta_object_hand = dist_object_hand_prev - dist_object_hand
 
-            if ee_pose_delta < 0.005 and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
+            if ee_pose_delta < 0.00025 and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
                 # print("delta_angle",np.mean(handqpos2angle(delta_hand_qpos)))
                 # print("!!!!!!!!!!!!!!!!!!!!!!skip1!!!!!!!!!!!!!!!!!!!!!")
                 continue
@@ -1100,24 +1098,16 @@ def bake_visual_demonstration_test(retarget=False):
             else:
                 ee_pose = ee_pose_next
                 hand_qpos_prev = hand_qpos
-                # if dist_object_hand_prev < 0.18 and dist_object_hand_prev < 0.15:
+
                 if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
                     is_hand_grasp = True
-                if dist_object_hand_prev < 0.25 and not(is_hand_grasp):
-                    print("Step: ",idx)
-                    print("object_z_pose",object_pose[2])
-                    if delta_object_hand < 0.0065:
-                        print("!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!")
-                        continue
-                
+
+                if dist_object_hand_prev < 0.25 and not(is_hand_grasp) and delta_object_hand < 0:
+                    continue
+
                 if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
                     print("hand_qpos",hand_qpos)
-                    hand_qpos = hand_qpos*0.8
-
-                # print("ee_pose_delta",ee_pose_delta)
-                # print("delta_angle",np.mean(handqpos2angle(delta_hand_qpos)))
-                # print("object_target_pose",env._is_close_to_target())
-                # print("object_zpose", object_pose[2])
+                    hand_qpos = hand_qpos*0.9
 
                 palm_pose = robot_pose.inv() * palm_pose
 
@@ -1140,14 +1130,15 @@ def bake_visual_demonstration_test(retarget=False):
                 visual_baked["obs"].append(env.get_observation())
                 visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                 _, _, _, info = env.step(target_qpos)
-                # env.render()
+                env.render()
 
                 dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
                 
                 rgb = env.get_observation()["relocate_view-rgb"].cpu().detach().numpy()
                 rgb_pic = (rgb * 255).astype(np.uint8)
-                imageio.imsave("./temp/demos/player/relocate-rgb_{}.png".format(i), rgb_pic)
-                i += 1
+                rgb_pics.append(rgb_pic)
+    
+    imageio.mimsave("./temp/demos/player/relocate-rgb.mp4", rgb_pics, fps=120)
 
 def bake_visual_real_demonstration_test(retarget=False):
     from pathlib import Path
@@ -1155,7 +1146,7 @@ def bake_visual_real_demonstration_test(retarget=False):
     # Recorder
     shutil.rmtree('./temp/demos/player', ignore_errors=True)
     os.makedirs('./temp/demos/player')
-    path = "./sim/raw_data/pick_place_mustard_bottle/mustard_bottle_0004.pickle"
+    path = "./sim/raw_data/pick_place_mustard_bottle/mustard_bottle_0002.pickle"
     #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0001.pickle"
     #path = "sim/raw_data/xarm/less_random/pick_place_sugar_box/sugar_box_0001.pickle"
     #path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"

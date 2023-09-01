@@ -477,12 +477,11 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                         is_hand_grasp = True
                     
                     #################### filter human noise #####################
-                    if dist_object_hand_prev < 0.25 and not(is_hand_grasp):
-                        if delta_object_hand < 0.002:
-                            continue
+                    if dist_object_hand_prev < 0.25 and not(is_hand_grasp) and delta_object_hand < 0:
+                        continue
 
                     if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
-                        hand_qpos = hand_qpos*0.8
+                        hand_qpos = hand_qpos*0.9
 
                     palm_pose = robot_pose.inv() * palm_pose
                     palm_next_pose = sapien.Pose(ee_pose_next[0:3], ee_pose_next[3:7])
