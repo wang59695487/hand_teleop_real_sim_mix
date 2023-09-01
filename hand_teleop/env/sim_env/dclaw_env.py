@@ -69,6 +69,7 @@ class DClawEnv(BaseSimulationEnv):
         pos_x = random.uniform(-0.05, 0.05) * randomness_scale
         pos_y = random.uniform(-0.05, 0.05) * randomness_scale
         position = np.array([pos_x, pos_y, 0.0])
+        position = np.array([0, 0, 0.0])
         random_pose = sapien.Pose(position)
         return random_pose
     
