@@ -510,7 +510,7 @@ def player_augmenting(args):
             #     num_test = str(last_num + 1).zfill(4)
                 
             info_success, data, video = generate_sim_aug(all_data=all_data, init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0]),retarget=args['retarget'])
-            imageio.mimsave(f"./temp/demos/aug_{args['object_name']}/demo_{demo_id+1}_{num_test}_x{x:.2f}_y{y:.2f}.mp4", video, fps=120)
+            #imageio.mimsave(f"./temp/demos/aug_{args['object_name']}/demo_{demo_id+1}_{num_test}_x{x:.2f}_y{y:.2f}.mp4", video, fps=120)
             if info_success:
 
                 print("##############SUCCESS##############")
@@ -527,20 +527,31 @@ def player_augmenting(args):
             if num_test == args['kinematic_aug']:
                 break
 
+
+def parse_args():
+    parser = ArgumentParser()
+    parser.add_argument("--seed", default=20230826, type=int)
+    parser.add_argument("--sim-demo-folder",default='./sim/raw_data/', type=str)
+    parser.add_argument("--task-name", required=True, type=str)
+    parser.add_argument("--object-name", required=True, type=str)
+    parser.add_argument("--kinematic-aug", default=100, type=int)
+    parser.add_argument("--retarget", default=False, type=bool)
+
+    args = parser.parse_args()
+
+    return args
+
 if __name__ == '__main__':
 
-    parser = ArgumentParser()
-    args = parser.parse_args()
+    args = parse_args()
      
     args = {
-        'seed': 20230826,
-        'sim_demo_folder' : './sim/raw_data/',
-        'task_name': "pick_place",
-        'object_name': "mustard_bottle",
-        #'object_name': "tomato_soup_can",
-        #'object_name': "sugar_box",
-        'kinematic_aug': 100,
-        'retarget': False
+        'seed': args.seed,
+        'sim_demo_folder' : args.sim_demo_folder,
+        'task_name': args.task_name,
+        'object_name': args.object_name,
+        'kinematic_aug': args.kinematic_aug,
+        'retarget': args.retarget
     }
 
     player_augmenting(args)
