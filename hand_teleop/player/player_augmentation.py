@@ -394,6 +394,7 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False, frame_skip=1):
     ee_pose = baked_data["ee_pose"][0]
     hand_qpos_prev = baked_data["action"][0][env.arm_dof:]
     dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
+    stop_frame = 0
 
     for idx in tqdm(range(0,len(baked_data["obs"]),frame_skip)):
         action = baked_data["action"][idx]
@@ -412,7 +413,7 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False, frame_skip=1):
             dist_object_hand = np.linalg.norm(object_pose - ee_pose_next[:3])
             delta_object_hand = dist_object_hand_prev - dist_object_hand
 
-            if ee_pose_delta < 0.00025 and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
+            if ee_pose_delta < 0.0005 and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
                 #print("!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!")
                 continue
                 
@@ -424,11 +425,11 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False, frame_skip=1):
                 if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
                     is_hand_grasp = True
                 
-                if dist_object_hand_prev < 0.3 and not(is_hand_grasp):
-                    if delta_object_hand < 0:
+                if dist_object_hand_prev < 0.2 and not(is_hand_grasp):
+                    if delta_object_hand < 0.002:
                         continue
 
-                if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
+                if env._object_target_distance() < 0.25 and object_pose[2] < 0.2:
                     hand_qpos = hand_qpos*0.9
               
                 palm_pose = robot_pose.inv() * palm_pose
@@ -459,9 +460,12 @@ def generate_sim_aug(all_data, init_pose_aug, retarget=False, frame_skip=1):
                 dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
                 
                 if task_name == 'pick_place':
-                    info_success = info["is_object_lifted"] and env._object_target_distance() <= 0.2 and env._is_object_plate_contact() \
-                                    and env.ee_link.get_pose().p[-1] > 0.25 and not(env._is_object_hand_contact())
+                    info_success = info["is_object_lifted"] and env._object_target_distance() <= 0.2 and env._is_object_plate_contact()
+                                    
                 if info_success:
+                    stop_frame += 1
+                
+                if stop_frame == 16:
                     break
                 #env.render()
     
@@ -491,8 +495,8 @@ def player_augmenting(args):
     for demo_id, file_name in enumerate(demo_files):
 
         num_test = 0
-        if demo_id == 0:
-            continue
+        # if demo_id <= 5:
+        #     continue
         with open(file_name, 'rb') as file:
             demo = pickle.load(file)
 

@@ -452,7 +452,9 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
                     target_qpos = np.concatenate([arm_qpos, hand_qpos])
                     env.step(target_qpos)
+
     else:
+        stop_frame = 0
         for idx in range(0,len(baked_data['obs']),frame_skip):
             # NOTE: robot.get_qpos() version
             if idx < len(baked_data['obs'])-frame_skip:
@@ -470,18 +472,21 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                 if ee_pose_delta <= args['delta_ee_pose_bound'] and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
                     continue
                 else:
+
                     ee_pose = ee_pose_next
                     hand_qpos_prev = hand_qpos      
 
-                    if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
-                        is_hand_grasp = True
-                    
-                    #################### filter human noise #####################
-                    if dist_object_hand_prev < 0.25 and not(is_hand_grasp) and delta_object_hand < 0:
-                        continue
+                    if task_name == "pick_place":
 
-                    if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
-                        hand_qpos = hand_qpos*0.9
+                        if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
+                            is_hand_grasp = True
+                        
+                        #################### filter human noise #####################
+                        if dist_object_hand_prev < 0.25 and not(is_hand_grasp) and delta_object_hand < 0:
+                            continue
+
+                        if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
+                            hand_qpos = hand_qpos*0.9
 
                     palm_pose = robot_pose.inv() * palm_pose
                     palm_next_pose = sapien.Pose(ee_pose_next[0:3], ee_pose_next[3:7])
@@ -507,8 +512,19 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     visual_baked["robot_qpos"].append(np.concatenate([env.robot.get_qpos(),
                                                       env.ee_link.get_pose().p,env.ee_link.get_pose().q]))
                 
-                    env.step(target_qpos)
-                    dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
+                    _, _, _, info = env.step(target_qpos)
+                    if task_name == "pick_place":
+                        
+                        info_success = info["is_object_lifted"] and env._object_target_distance() <= 0.2 and env._is_object_plate_contact()
+                        dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
+                    
+                    if info_success:
+                        stop_frame += 1
+                        
+                    if stop_frame == 16:
+                        break
+        
+    return visual_baked, meta_data
                
 
     # # For visual obs debugging    
@@ -517,8 +533,6 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
     #     rgb_pic = (rgb * 255).astype(np.uint8)
     #     imageio.imsave("./temp/demos/single/relocate-rgb_{}.png".format(i), rgb_pic)
     #     rgb_pic = imageio.imread(, pilmode="RGB")
-
-    return visual_baked, meta_data
 
 def stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model, preprocess):
     # 0 menas sim, 1 means real here
