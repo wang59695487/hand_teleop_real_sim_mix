@@ -524,7 +524,8 @@ def generate_sim_aug_in_play_demo(args, demo, init_pose_aug):
                 
                 if stop_frame == 16:
                     break
-                    
+    if grasp_frame/len(visual_baked['obs']) < 0.1:
+        info_success = False
     print("grasp_frame: ", grasp_frame)
     print("total_frame: ", len(visual_baked['obs']))
 
