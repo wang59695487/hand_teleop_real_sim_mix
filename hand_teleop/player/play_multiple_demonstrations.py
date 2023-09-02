@@ -49,7 +49,7 @@ def play_multiple_sim_visual(args):
         print(file_name)
         with open(file_name, 'rb') as file:
             demo = pickle.load(file)
-            visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'], 
+            visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'],light_mode=args['light_mode'], 
                                                                     randomization_prob=args['randomization_prob'], retarget=args['retarget'],frame_skip=args['frame_skip'])
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
@@ -219,7 +219,7 @@ def play_multiple_sim_real_visual(args):
         pickle.dump(meta_data, file)
         
 
-def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, randomization_prob, 
+def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, randomization_prob, light_mode="default",
                                retarget=False, real_demo=None, real_images=None, using_real_data=False, frame_skip=4):
     if robot_name == 'mano':
         assert retarget == False
@@ -252,6 +252,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
     env_params['robot_name'] = robot_name
     env_params['use_visual_obs'] = use_visual_obs
     env_params['use_gui'] = False
+    env_params['light_mode'] = light_mode
 
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
@@ -633,6 +634,7 @@ def parse_args():
     parser.add_argument("--real-folder", default=None)
     parser.add_argument("--task-name", required=True)
     parser.add_argument("--object-name", required=True)
+    parser.add_argument("--light-mode", default="default")
     parser.add_argument("--out-folder", required=True)
     args = parser.parse_args()
 
@@ -652,6 +654,7 @@ if __name__ == '__main__':
         "robot_name": "xarm6_allegro_modified_finger",
         'with_features' : True,
         'backbone_type' : args.backbone_type,
+        'light_mode' : args.light_mode,
         'stack_frames' : True,
         'retarget' : False,
         'save_each_frame' : False,

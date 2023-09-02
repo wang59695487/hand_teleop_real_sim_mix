@@ -17,7 +17,7 @@ from hand_teleop.kinematics.mano_robot_hand import MANORobotHand
 
 class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
     def __init__(self, use_gui=False, frame_skip=5, robot_name="adroit_hand_free", constant_object_state=False,
-                 rotation_reward_weight=0, object_category="YCB", object_name="tomato_soup_can", object_seed = 0, object_scale=1, 
+                 rotation_reward_weight=0, object_category="YCB", object_name="tomato_soup_can",light_mode="random",object_seed = 0, object_scale=1, 
                  randomness_scale=1, friction=1, object_pose_noise=0.01, zero_joint_pos=None, **renderer_kwargs):
         super().__init__(use_gui, frame_skip, object_category, object_name, object_scale, randomness_scale, friction,
                          **renderer_kwargs)
@@ -46,16 +46,18 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
 
         # Object init pose
         self.object_episode_init_pose = sapien.Pose()
-        self.add_lignt()
+        self.add_lignt(mode=light_mode)    
         
 
-    def add_lignt(self,mode="train"):
-        if mode == "train":
+    def add_lignt(self,mode="random"):
+        if mode == "random":
             print(f"###############################Add Random Scene Light####################################")
             add_random_scene_light(self.scene, self.renderer, self.randomness_scale)  
-        else:
+        elif mode == "default":
             print(f"###############################Add Default Scene Light####################################")
             add_default_scene_light(self.scene, self.renderer)
+        else:
+            raise NotImplementedError   
 
     def mano_setup(self, frame_skip, zero_joint_pos):
         self.robot_name = "mano"
