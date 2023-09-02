@@ -514,7 +514,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     
                     _, _, _, info = env.step(target_qpos)
                     if task_name == "pick_place":
-                        if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
+                        if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.2:
                             ###########################Grasping augmentation############################
                             for _ in range(50):
                                 visual_baked["obs"].append(observation)
