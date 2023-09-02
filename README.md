@@ -21,7 +21,8 @@ nohup python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=
 
 nohup python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/pick_place_mustard_bottle_small_scale --out-folder=real/baked_data/pick_place_mustard_bottle_small_scale --task-name=pick_place --object-name=mustard_bottle --frame-skip=1 --delta-ee-pose-bound=0.0005 --light-mode=default > ./logs/play_real_demo 2>&1 &
 
-python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/pick_place_mustard_bottle_large_scale --sim-folder=sim/raw_data/pick_place_mustard_bottle --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle --task-name=pick_place --object-name=mustard_bottle --frame-skip=1 --delta-ee-pose-bound=0.0005 --light-mode=default
+python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/pick_place_mustard_bottle_large_scale --sim-folder=sim/raw_data/pick_place_mustard_bottle --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle --task-name=pick_place --object-name=mustard_bottle --frame-skip=1 --sim-delta-ee-pose-bound=0.01 --real-delta-ee-pose-bound=0.01 --light-mode=default --img-data-aug=5
+#Real_Demos: 12815 Sim_Demos: 48735
 
 ```
 Currently, these following backbones are supported:
@@ -46,15 +47,26 @@ nohup python main/train_real_sim.py \
     --eval-freq=100 > ./logs/train_real_sim 2>&1 &
 
 nohup python main/train_real_sim.py \
+    --demo-folder=real_sim_mix/baked_data/pick_place_mb_small_scale_wo_ran_light \
+    --backbone-type=regnet_y_3_2gf \
+    --lr=2e-4 \
+    --sim-batch-size=16384 \
+    --real-batch-size=65536 \
+    --num-epochs=3000 \
+    --eval-freq=100 \
+    --eval-start-epoch=100 \
+    --val-ratio=0.05 > ./logs/train_real_sim 2>&1 &
+
+nohup python main/train_real_sim.py \
     --demo-folder=real_sim_mix/baked_data/pick_place_mustard_bottle \
     --backbone-type=regnet_y_3_2gf \
     --lr=2e-5 \
-    --sim-batch-size=32768 \
-    --real-batch-size=32768 \
+    --sim-batch-size=40000 \
+    --real-batch-size=10000 \
     --num-epochs=2000 \
     --eval-freq=100 \
-    --eval-start-epoch=600 > ./logs/train_real_sim 2>&1 &
-   
+    --val-ratio=0.05 \
+    --eval-start-epoch=400 > ./logs/train_real_sim 2>&1 &
 
 python main/train_real_sim.py \
     --demo-folder=real/baked_data/pick_place_mustard_bottle_small_scale_10\
