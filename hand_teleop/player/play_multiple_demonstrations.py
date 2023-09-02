@@ -429,9 +429,11 @@ def play_one_real_sim_visual_demo(args, demo, real_demo=None, real_images=None, 
         hand_qpos_prev = baked_data["action"][0][env.arm_dof:]
         dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
         is_hand_grasp = False
+        
 
     if using_real_data:
 
+        grasp_frame = 0
         for idx in range(0,len(baked_data),frame_skip):
             # NOTE: robot.get_qpos() version
             if idx < len(baked_data)-frame_skip:
@@ -487,6 +489,20 @@ def play_one_real_sim_visual_demo(args, demo, real_demo=None, real_images=None, 
                     target_qpos = np.concatenate([arm_qpos, hand_qpos])
                     env.step(target_qpos)
 
+                    if task_name == "pick_place":
+                        if np.mean(handqpos2angle(delta_hand_qpos)) > 1 :
+                            ###########################Grasping augmentation############################
+                            for _ in range(5):
+                                visual_baked["obs"].append(observation)
+                                visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
+                                # Using robot qpos version
+                                visual_baked["robot_qpos"].append(np.concatenate([env.robot.get_qpos(),
+                                                                env.ee_link.get_pose().p,env.ee_link.get_pose().q]))
+                                grasp_frame+=1    
+
+        print("grasp_frame: ", grasp_frame)
+        print("total_frame: ", len(visual_baked['obs']))
+                
         return visual_baked, meta_data
     
     else:
