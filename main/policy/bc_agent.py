@@ -231,7 +231,7 @@ class BCSSAgent(object):
         # bc_loss.backward()
         # self.bc_module_optimizer.step()
 
-        return F.mse_loss(pred_action, action)
+        return F.mse_loss(pred_action, action, reduction=None)
 
     
     def update(self, bc_loss, L=None, step=None):

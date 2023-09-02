@@ -11,16 +11,8 @@ from tqdm import tqdm
 import copy
 from argparse import ArgumentParser
 
-from hand_teleop.env.rl_env.base import BaseRLEnv, compute_inverse_kinematics
-from hand_teleop.env.rl_env.pen_draw_env import PenDrawRLEnv
-from hand_teleop.env.rl_env.relocate_env import RelocateRLEnv
-from hand_teleop.env.rl_env.table_door_env import TableDoorRLEnv
-from hand_teleop.env.rl_env.mug_flip_env import MugFlipRLEnv
-from hand_teleop.env.rl_env.laptop_env import LaptopRLEnv
-from hand_teleop.env.rl_env.pick_place_env import PickPlaceRLEnv
-from hand_teleop.env.rl_env.insert_object_env import InsertObjectRLEnv
-from hand_teleop.env.rl_env.hammer_env import HammerRLEnv
-from hand_teleop.env.rl_env.dclaw_env import DClawRLEnv
+import sys
+sys.path.append("/home/yigit/project/hand_teleop_real_sim_mix")
 
 from hand_teleop.utils.common_robot_utils import LPFilter
 from hand_teleop.kinematics.mano_robot_hand import MANORobotHand
