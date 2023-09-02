@@ -526,6 +526,7 @@ def parse_args():
     parser.add_argument("--num-epochs", default=2000, type=int)
     parser.add_argument("--real-batch-size", default=32678, type=int)
     parser.add_argument("--sim-batch-size", default=32678, type=int)
+    parser.add_argument("--val-ratio", default=0.1, type=float)
     
     args = parser.parse_args()
 
@@ -539,7 +540,7 @@ if __name__ == '__main__':
         'dataset_folder': args.demo_folder,
         'real_batch_size': args.real_batch_size,
         'sim_batch_size': args.sim_batch_size,
-        'val_ratio': 0.1,
+        'val_ratio': args.val_ratio,
         'bc_lr': args.lr,
         'num_epochs': args.num_epochs,              
         'weight_decay': 1e-2,
