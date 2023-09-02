@@ -45,12 +45,16 @@ def play_multiple_sim_visual(args):
     visual_training_set = dict(obs=[], next_obs=[], state=[], next_state=[], action=[], robot_qpos=[], sim_real_label=[])
     init_obj_poses = []
 
+    fail = 0
     for demo_id, file_name in enumerate(demo_files):
         print(file_name)
         with open(file_name, 'rb') as file:
             demo = pickle.load(file)
-            visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'],light_mode=args['light_mode'], 
+            visual_baked, meta_data , info_success = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'],light_mode=args['light_mode'], 
                                                                     randomization_prob=args['randomization_prob'], retarget=args['retarget'],frame_skip=args['frame_skip'])
+            if not info_success:
+                fail+=1
+                continue
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
         visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
@@ -61,7 +65,7 @@ def play_multiple_sim_visual(args):
     if visual_training_set['obs'] and visual_training_set['action'] and visual_training_set['robot_qpos']:
         assert len(visual_training_set['obs']) == len(visual_training_set['action'])
         assert len(visual_training_set['obs']) == len(visual_training_set['robot_qpos'])
-
+        print("Fail demos number: ", fail)
         print("Dataset ready:")
         print('----------------------')
         print("Number of datapoints: {}".format(len(visual_training_set['obs'])))
@@ -183,12 +187,16 @@ def play_multiple_sim_real_visual(args):
             demo_files.append(os.path.join(args['sim_demo_folder'], file_name))
     print('Replaying the sim demos and creating the dataset:')
     print('---------------------')
+    fail = 0
     for demo_id, file_name in enumerate(demo_files):
         print(file_name)
         with open(file_name, 'rb') as file:
             demo = pickle.load(file)
-            visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'], 
+            visual_baked, meta_data, info_success = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'], 
                                                                         randomization_prob=args['randomization_prob'], retarget=args['retarget'],frame_skip=args['frame_skip'])
+            if not info_success:
+                fail += 1
+                continue
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
             visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
@@ -201,6 +209,7 @@ def play_multiple_sim_real_visual(args):
 
     if visual_training_set['obs'] and visual_training_set['action'] and visual_training_set['robot_qpos']:
         assert len(visual_training_set['obs']) == len(visual_training_set['action'])
+        print("Fail demos number: ", fail)
         print("Dataset ready:")
         print('----------------------')
         print("Number of datapoints: {}".format(len(visual_training_set['obs'])))
@@ -405,7 +414,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
         
                 delta_hand_qpos = hand_qpos - hand_qpos_prev if idx!=0 else hand_qpos
 
-                if ee_pose_delta <= args['delta_ee_pose_bound'] and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
+                if ee_pose_delta <= args['real_delta_ee_pose_bound'] and np.mean(handqpos2angle(delta_hand_qpos)) <= 1.2:
                     continue
 
                 else:
@@ -450,10 +459,12 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
                     target_qpos = np.concatenate([arm_qpos, hand_qpos])
                     env.step(target_qpos)
-            
+
+        return visual_baked, meta_data
+    
     else:
         stop_frame = 0
-
+        grasp_frame = 0
         for idx in range(0,len(baked_data['obs']),frame_skip):
             # NOTE: robot.get_qpos() version
             if idx < len(baked_data['obs'])-frame_skip:
@@ -468,7 +479,7 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                 dist_object_hand = np.linalg.norm(object_pose - ee_pose_next[:3])
                 delta_object_hand = dist_object_hand_prev - dist_object_hand
 
-                if ee_pose_delta <= args['delta_ee_pose_bound'] and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
+                if ee_pose_delta <= args['sim_delta_ee_pose_bound'] and np.mean(handqpos2angle(delta_hand_qpos)) <= 1.2:
                     continue
                 
                 else:
@@ -516,13 +527,13 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     if task_name == "pick_place":
                         if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.2:
                             ###########################Grasping augmentation############################
-                            for _ in range(50):
+                            for _ in range(3):
                                 visual_baked["obs"].append(observation)
                                 visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                                 # Using robot qpos version
                                 visual_baked["robot_qpos"].append(np.concatenate([env.robot.get_qpos(),
                                                                 env.ee_link.get_pose().p,env.ee_link.get_pose().q]))
-                                
+                                grasp_frame+=1    
                         info_success = info["is_object_lifted"] and env._object_target_distance() <= 0.2 and env._is_object_plate_contact()
                         dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
                         
@@ -532,8 +543,11 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                         
                     if stop_frame == 16:
                         break
+                    
+        print("grasp_frame: ", grasp_frame)
+        print("total_frame: ", len(visual_baked['obs']))
         
-    return visual_baked, meta_data
+        return visual_baked, meta_data, info_success
                
 
     # # For visual obs debugging    
@@ -618,8 +632,9 @@ def stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_fo
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--backbone-type", required=True)
-    parser.add_argument("--delta-ee-pose-bound", default="0.0025", type=float)
-    parser.add_argument("--frame-skip", default="4", type=int)
+    parser.add_argument("--sim-delta-ee-pose-bound", default="0.01", type=float)
+    parser.add_argument("--real-delta-ee-pose-bound", default="0.01", type=float)
+    parser.add_argument("--frame-skip", default="1", type=int)
     parser.add_argument("--img-data-aug", default="5", type=int)
     parser.add_argument("--sim-folder", default=None)
     parser.add_argument("--real-folder", default=None)
@@ -653,7 +668,8 @@ if __name__ == '__main__':
         'randomization_prob': 0.2,
         'num_data_aug': args.img_data_aug,
         'image_augmenter': T.AugMix(),
-        'delta_ee_pose_bound': args.delta_ee_pose_bound,
+        'sim_delta_ee_pose_bound': args.sim_delta_ee_pose_bound,
+        'real_delta_ee_pose_bound': args.real_delta_ee_pose_bound,
         'frame_skip': args.frame_skip,
         'out_folder': args.out_folder
     }
