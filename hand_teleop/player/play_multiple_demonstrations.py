@@ -50,8 +50,7 @@ def play_multiple_sim_visual(args):
         print(file_name)
         with open(file_name, 'rb') as file:
             demo = pickle.load(file)
-            visual_baked, meta_data , info_success = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'],light_mode=args['light_mode'], 
-                                                                    randomization_prob=args['randomization_prob'], retarget=args['retarget'],frame_skip=args['frame_skip'])
+            visual_baked, meta_data , info_success = play_one_real_sim_visual_demo(args=args, demo=demo)
             if not info_success:
                 fail+=1
                 continue
@@ -112,10 +111,7 @@ def play_multiple_real_visual(args):
             print("sim_file: ", path)
             demo = np.load(path, allow_pickle=True)
 
-            visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, real_demo=real_demo, real_images=image_file, robot_name=args['robot_name'], 
-                                                                    domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], 
-                                                                    retarget=args['retarget'],using_real_data=True, frame_skip=args['frame_skip'])
-            
+            visual_baked, meta_data = play_one_real_sim_visual_demo(args=args, demo=demo, real_demo=real_demo, real_images=image_file, using_real_data=True)
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
         visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model = model, preprocess = preprocess)
@@ -172,9 +168,7 @@ def play_multiple_sim_real_visual(args):
             path = "./sim/raw_data/{}_{}/{}_0004.pickle".format(args['task_name'],args['object_name'],args['object_name'])
             print("sim_file: ", path)
             demo = np.load(path, allow_pickle=True)
-            visual_baked, meta_data = play_one_real_sim_visual_demo(demo=demo, real_demo=real_demo, real_images=image_file, robot_name=args['robot_name'], 
-                                                                    domain_randomization=args['domain_randomization'], randomization_prob=args['randomization_prob'], 
-                                                                    retarget=args['retarget'],using_real_data=True, frame_skip=args['frame_skip'])
+            visual_baked, meta_data = play_one_real_sim_visual_demo(args=args, demo=demo, real_demo=real_demo, real_images=image_file, using_real_data=True)
             init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
             # visual_baked_demos.append(visual_baked)
             visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model = model, preprocess = preprocess)
@@ -187,20 +181,48 @@ def play_multiple_sim_real_visual(args):
             demo_files.append(os.path.join(args['sim_demo_folder'], file_name))
     print('Replaying the sim demos and creating the dataset:')
     print('---------------------')
-    fail = 0
-    for demo_id, file_name in enumerate(demo_files):
-        print(file_name)
-        with open(file_name, 'rb') as file:
-            demo = pickle.load(file)
-            visual_baked, meta_data, info_success = play_one_real_sim_visual_demo(demo=demo, robot_name=args['robot_name'], domain_randomization=args['domain_randomization'], 
-                                                                        randomization_prob=args['randomization_prob'], retarget=args['retarget'],frame_skip=args['frame_skip'])
-            if not info_success:
-                fail += 1
-                continue
-            init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
-            # visual_baked_demos.append(visual_baked)
-            visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
-    
+    if args['kinematic_aug'] > 0:
+        print('------------------------Augmentating the sim demos and creating the dataset------------------------')
+        aug = 0
+        for i in range(400):
+            for demo_id, file_name in enumerate(demo_files):
+                print(file_name)
+
+                x = np.random.uniform(-0.11,0.11)
+                y = np.random.uniform(-0.11,0.11)
+                init_pose_aug=sapien.Pose([x, y, 0], [1, 0, 0, 0])
+                
+                if np.fabs(x) <= 0.01 and np.fabs(y) <= 0.01:
+                    continue
+                with open(file_name, 'rb') as file:
+                    demo = pickle.load(file)
+                    visual_baked, meta_data, info_success = generate_sim_aug_in_play_demo(args, demo=demo, init_pose_aug=init_pose_aug)
+                    if not info_success:
+                        continue
+                    aug += 1
+                    init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
+                    # visual_baked_demos.append(visual_baked)
+                    visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
+            
+                if aug > args['kinematic_aug']:
+                    break
+
+            if aug > args['kinematic_aug']:
+                    break  
+
+    # fail = 0
+    # for demo_id, file_name in enumerate(demo_files):
+    #     print(file_name)
+    #     with open(file_name, 'rb') as file:
+    #         demo = pickle.load(file)
+    #         visual_baked, meta_data, info_success = play_one_real_sim_visual_demo(args, demo=demo)
+    #         if not info_success:
+    #             fail += 1
+    #             continue
+    #         init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
+    #         # visual_baked_demos.append(visual_baked)
+    #         visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)  
+            
     sim_demo_length = len(visual_training_set['obs']) - real_demo_length
      # since here we are using real data, we set sim_real_label = 1
     visual_training_set['sim_real_label'] = [1 for _ in range(real_demo_length)]
@@ -228,8 +250,14 @@ def play_multiple_sim_real_visual(args):
         pickle.dump(meta_data, file)
         
 
-def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, randomization_prob, light_mode="default",
-                               retarget=False, real_demo=None, real_images=None, using_real_data=False, frame_skip=4):
+def play_one_real_sim_visual_demo(args, demo, real_demo=None, real_images=None, using_real_data=False):
+    robot_name=args['robot_name']
+    domain_randomization=args['domain_randomization']
+    light_mode=args['light_mode']
+    randomization_prob=args['randomization_prob']
+    retarget=args['retarget']
+    frame_skip=args['frame_skip']
+
     if robot_name == 'mano':
         assert retarget == False
     # Get env params
@@ -489,14 +517,14 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
 
                     if task_name == "pick_place":
 
-                        if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
+                        if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < args['detection_bound']:
                             is_hand_grasp = True
                         
                         #################### filter human noise #####################
-                        if dist_object_hand_prev < 0.25 and not(is_hand_grasp) and delta_object_hand < 0.002:
+                        if dist_object_hand_prev < args['detection_bound'] and not(is_hand_grasp) and delta_object_hand < args['delta_object_hand_bound']:
                             continue
 
-                        if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
+                        if env._object_target_distance() < 0.25 and object_pose[2] < 0.2:
                             hand_qpos = hand_qpos*0.9
 
                     palm_pose = robot_pose.inv() * palm_pose
@@ -525,9 +553,9 @@ def play_one_real_sim_visual_demo(demo, robot_name, domain_randomization, random
                     
                     _, _, _, info = env.step(target_qpos)
                     if task_name == "pick_place":
-                        if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.2:
+                        if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
                             ###########################Grasping augmentation############################
-                            for _ in range(3):
+                            for _ in range(4):
                                 visual_baked["obs"].append(observation)
                                 visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                                 # Using robot qpos version
@@ -632,8 +660,10 @@ def stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_fo
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--backbone-type", required=True)
-    parser.add_argument("--sim-delta-ee-pose-bound", default="0.01", type=float)
-    parser.add_argument("--real-delta-ee-pose-bound", default="0.01", type=float)
+    parser.add_argument("--sim-delta-ee-pose-bound", default="0.005", type=float)
+    parser.add_argument("--real-delta-ee-pose-bound", default="0.005", type=float)
+    parser.add_argument("--delta-object-hand-bound", default="0.002", type=float)
+    parser.add_argument("--detection-bound", default="0.25", type=float)
     parser.add_argument("--frame-skip", default="1", type=int)
     parser.add_argument("--img-data-aug", default="5", type=int)
     parser.add_argument("--sim-folder", default=None)
@@ -642,6 +672,7 @@ def parse_args():
     parser.add_argument("--object-name", required=True)
     parser.add_argument("--light-mode", default="default")
     parser.add_argument("--out-folder", required=True)
+    parser.add_argument("--kinematic-aug", default=50,type=int )
     args = parser.parse_args()
 
     return args
@@ -670,7 +701,10 @@ if __name__ == '__main__':
         'image_augmenter': T.AugMix(),
         'sim_delta_ee_pose_bound': args.sim_delta_ee_pose_bound,
         'real_delta_ee_pose_bound': args.real_delta_ee_pose_bound,
+        "delta_object_hand_bound": args.delta_object_hand_bound,
+        "detection_bound": args.detection_bound,
         'frame_skip': args.frame_skip,
+        'kinematic_aug': args.kinematic_aug,
         'out_folder': args.out_folder
     }
 

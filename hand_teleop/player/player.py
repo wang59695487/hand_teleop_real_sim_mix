@@ -907,13 +907,13 @@ def handqpos2angle(hand_qpos):
         delta_angles.append(np.abs(delta_angle))
     return delta_angles
 
-def bake_visual_demonstration_test(retarget=False):
+def bake_visual_demonstration_test(retarget=False,idx=0):
     from pathlib import Path
 
     # Recorder
     shutil.rmtree('./temp/demos/player', ignore_errors=True)
     os.makedirs('./temp/demos/player')
-    path = "./sim/raw_data/pick_place_mustard_bottle/mustard_bottle_0001.pickle"
+    path = f"./sim/raw_data/pick_place_mustard_bottle/mustard_bottle_{idx:004d}.pickle"
     #path = "sim/raw_data/xarm/less_random/pick_place_tomato_soup_can/tomato_soup_can_0011.pickle"
     #path = "sim/raw_data/pick_place_sugar_box/sugar_box_0050.pickle"
     #path = "sim/raw_data/xarm/less_random/dclaw/dclaw_3x_0001.pickle"
@@ -1090,7 +1090,7 @@ def bake_visual_demonstration_test(retarget=False):
             dist_object_hand = np.linalg.norm(object_pose - ee_pose_next[:3])
             delta_object_hand = dist_object_hand_prev - dist_object_hand
 
-            if ee_pose_delta < 0.00025 and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
+            if ee_pose_delta < 0.01 and np.mean(handqpos2angle(delta_hand_qpos)) <= 1.2:
                 # print("delta_angle",np.mean(handqpos2angle(delta_hand_qpos)))
                 # print("!!!!!!!!!!!!!!!!!!!!!!skip1!!!!!!!!!!!!!!!!!!!!!")
                 continue
@@ -1102,7 +1102,7 @@ def bake_visual_demonstration_test(retarget=False):
                 if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
                     is_hand_grasp = True
 
-                if dist_object_hand_prev < 0.25 and not(is_hand_grasp) and delta_object_hand < 0:
+                if dist_object_hand_prev < 0.25 and not(is_hand_grasp) and delta_object_hand < 0.02:
                     continue
 
                 if env._object_target_distance() < 0.2 and object_pose[2] < 0.2:
@@ -1133,12 +1133,16 @@ def bake_visual_demonstration_test(retarget=False):
                 env.render()
 
                 dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
+
+                if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.2:
                 
-                rgb = env.get_observation()["relocate_view-rgb"].cpu().detach().numpy()
-                rgb_pic = (rgb * 255).astype(np.uint8)
-                rgb_pics.append(rgb_pic)
-    
-    imageio.mimsave("./temp/demos/player/relocate-rgb.mp4", rgb_pics, fps=120)
+                    rgb = env.get_observation()["relocate_view-rgb"].cpu().detach().numpy()
+                    rgb_pic = (rgb * 255).astype(np.uint8)
+                    rgb_pics.append(rgb_pic)
+
+    print("total_frames", len(visual_baked['obs']))
+    print("total_grasp_frames", len(rgb_pics))
+    imageio.mimsave("./temp/demos/player/relocate-rgb.mp4", rgb_pics, fps=4)
 
 def bake_visual_real_demonstration_test(retarget=False):
     from pathlib import Path
@@ -1283,7 +1287,7 @@ def bake_visual_real_demonstration_test(retarget=False):
                                         has_joint_limits=True)
         baked_data = player.bake_demonstration(retargeting, method="tip_middle", indices=indices)
     elif using_real:
-        path = "./real/raw_data/pick_place_mustard_bottle/0001.pkl"
+        path = "./real/raw_data/pick_place_mustard_bottle_large_scale/0001.pkl"
         #path = "./real/raw_data/pick_place_tomato_soup_can/0000.pkl"
         #path = "./real/raw_data/pick_place_sugar_box/0000.pkl"
         #path = "./real/raw_data/dclaw/0000.pkl"
@@ -1318,7 +1322,7 @@ def bake_visual_real_demonstration_test(retarget=False):
     # 0016: obj_position = np.array([-0.02, 0.25, 0.1])
     # 0017: obj_position = np.array([-0.02, 0.28, 0.1])
     #y: 0.32 - 0.26
-    obj_position = np.array([-0.05, 0.29, 0.1])
+    obj_position = np.array([-0.09, 0.25, 0.1])
     euler = np.deg2rad(30)
     orientation = transforms3d.euler.euler2quat(0, 0, euler)
     obj_pose = sapien.Pose(obj_position, orientation)
@@ -1336,6 +1340,7 @@ def bake_visual_real_demonstration_test(retarget=False):
     hand_qpos_prev = baked_data[0]["teleop_cmd"][env.arm_dof:]
 
     frame_skip=4
+    rgb_pics = []
     for idx in range(0,len(baked_data),frame_skip):
         
         # NOTE: robot.get_qpos() version
@@ -1350,7 +1355,7 @@ def bake_visual_real_demonstration_test(retarget=False):
 
             dist_object_hand = np.linalg.norm(object_pose - palm_pose.p)
 
-            if ee_pose_delta < 0.0015 and average_angle_handqpos(delta_hand_qpos)*np.pi/180 <= 1:
+            if ee_pose_delta < 0.02 and np.mean(handqpos2angle(delta_hand_qpos)) <= 1:
                 #print("!!!!!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                 continue
             else:
@@ -1382,31 +1387,15 @@ def bake_visual_real_demonstration_test(retarget=False):
                 # arm_qpos = qvel + env.robot.get_qpos()[:env.arm_dof]
 
                 target_qpos = np.concatenate([arm_qpos, hand_qpos])
-                visual_baked["obs"].append(env.get_observation())
-                visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                 _, _, _, info = env.step(target_qpos)
-                print("dist_object_hand: ",dist_object_hand)
-                #print("dof",env.robot.dof)
-                #print("target_qpos: ", target_qpos)
                 env.render()  
+
+                rgb = env.get_observation()["relocate_view-rgb"].cpu().detach().numpy()
+                rgb_pic = (rgb * 255).astype(np.uint8)
+                rgb_pics.append(rgb_pic)
+
+        imageio.mimsave("./temp/demos/player/relocate-rgb.mp4", rgb_pics, fps=120)
             
-                # else:
-                #     print("!!!!!!!!!!!!!!!!!!!!!!skip!!!!!!!!!!!!!!!!!!!!!")
-
-            # # NOTE: Old Version
-            # visual_baked["obs"].append(env.get_observation())
-            # visual_baked["action"].append(action)
-            # env.step(action)
-
-            # env.render()
-            # # for _ in range(3):
-            # #     env.render()
-
-    # for i in range(len(visual_baked["obs"])):
-    #     rgb = visual_baked["obs"][i]["relocate_view-rgb"]
-    #     rgb_pic = (rgb * 255).astype(np.uint8)
-    #     imageio.imsave("./temp/demos/player/relocate-rgb_{}.png".format(i), rgb_pic)
-    
     
 
 if __name__ == '__main__':
