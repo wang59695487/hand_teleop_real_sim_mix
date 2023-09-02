@@ -508,7 +508,7 @@ def generate_sim_aug_in_play_demo(args, demo, init_pose_aug):
 
                     if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
                         ###########################Grasping augmentation############################
-                        for _ in range(10):
+                        for _ in range(5):
                             visual_baked["obs"].append(observation)
                             visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                             # Using robot qpos version

@@ -231,7 +231,6 @@ def play_multiple_sim_real_visual(args):
 
     if visual_training_set['obs'] and visual_training_set['action'] and visual_training_set['robot_qpos']:
         assert len(visual_training_set['obs']) == len(visual_training_set['action'])
-        print("Fail demos number: ", fail)
         print("Dataset ready:")
         print('----------------------')
         print("Number of datapoints: {}".format(len(visual_training_set['obs'])))
@@ -555,7 +554,7 @@ def play_one_real_sim_visual_demo(args, demo, real_demo=None, real_images=None, 
                     if task_name == "pick_place":
                         if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
                             ###########################Grasping augmentation############################
-                            for _ in range(10):
+                            for _ in range(5):
                                 visual_baked["obs"].append(observation)
                                 visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                                 # Using robot qpos version
