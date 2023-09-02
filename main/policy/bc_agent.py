@@ -221,8 +221,7 @@ class BCSSAgent(object):
             assert self.inv == None
 
         pred_action = self.bc_policy_network(concatenated_obs, robot_qpos, sim_real_label)
-
-        # bc_loss = F.mse_loss(pred_action, action)
+        action = action.type(torch.float32)
 
         # if L is not None:
         #     L.log('train/bc_loss_total', bc_loss.item(), step)
