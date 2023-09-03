@@ -375,7 +375,7 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
     loss_val_real = evaluate(agent, bc_validation_dataloader_real, L, epoch)
     loss_val_sim = evaluate(agent, bc_validation_dataloader_sim, L, epoch)
 
-    return loss_train_real/it_per_epoch_real, loss_train_sim/it_per_epoch_sim, loss_val_real, loss_val_sim
+    return loss_train_real/len(bc_train_dataloader_real), loss_train_sim/len(bc_train_dataloader_sim), loss_val_real, loss_val_sim
 
 def train_in_one_epoch(agent, it_per_epoch, bc_train_dataloader, bc_validation_dataloader, L, epoch):
     
@@ -390,7 +390,7 @@ def train_in_one_epoch(agent, it_per_epoch, bc_train_dataloader, bc_validation_d
 
     loss_val = evaluate(agent, bc_validation_dataloader, L, epoch)
 
-    return loss_train/it_per_epoch, loss_val
+    return loss_train/len(bc_train_dataloader), loss_val
 
 def train_real_sim(args):
     # read and prepare data

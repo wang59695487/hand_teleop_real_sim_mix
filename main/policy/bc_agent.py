@@ -230,7 +230,7 @@ class BCSSAgent(object):
         # bc_loss.backward()
         # self.bc_module_optimizer.step()
 
-        return F.mse_loss(pred_action, action)
+        return F.mse_loss(pred_action, action, reduction='sum')
 
     
     def update(self, bc_loss, L=None, step=None):
@@ -277,9 +277,7 @@ class BCSSAgent(object):
             
             pred_action = self.bc_policy_network(concatenated_obs,robot_qpos, sim_real_label)
             if mode=='eval':
-                valid_loss = F.mse_loss(pred_action, action)
-                if L is not None:
-                    L.log('eval/loss', valid_loss.item()/len(action), step)
+                valid_loss = F.mse_loss(pred_action, action, reduction='sum')
                 
                 return valid_loss.detach().cpu().item()
 
