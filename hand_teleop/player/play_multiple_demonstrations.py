@@ -489,20 +489,6 @@ def play_one_real_sim_visual_demo(args, demo, real_demo=None, real_images=None, 
                     target_qpos = np.concatenate([arm_qpos, hand_qpos])
                     env.step(target_qpos)
 
-                    if task_name == "pick_place":
-                        if np.mean(handqpos2angle(delta_hand_qpos)) > 1 :
-                            ###########################Grasping augmentation############################
-                            for _ in range(5):
-                                visual_baked["obs"].append(observation)
-                                visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
-                                # Using robot qpos version
-                                visual_baked["robot_qpos"].append(np.concatenate([env.robot.get_qpos(),
-                                                                env.ee_link.get_pose().p,env.ee_link.get_pose().q]))
-                                grasp_frame+=1    
-
-        print("grasp_frame: ", grasp_frame)
-        print("total_frame: ", len(visual_baked['obs']))
-                
         return visual_baked, meta_data
     
     else:
@@ -568,18 +554,9 @@ def play_one_real_sim_visual_demo(args, demo, real_demo=None, real_images=None, 
                     
                     _, _, _, info = env.step(target_qpos)
                     if task_name == "pick_place":
-                        if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
-                            ###########################Grasping augmentation############################
-                            for _ in range(5):
-                                visual_baked["obs"].append(observation)
-                                visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
-                                # Using robot qpos version
-                                visual_baked["robot_qpos"].append(np.concatenate([env.robot.get_qpos(),
-                                                                env.ee_link.get_pose().p,env.ee_link.get_pose().q]))
-                                grasp_frame+=1    
+        
                         info_success = info["is_object_lifted"] and env._object_target_distance() <= 0.2 and env._is_object_plate_contact()
                         dist_object_hand_prev = np.linalg.norm(env.manipulated_object.pose.p - env.ee_link.get_pose().p)
-                        
                     
                     if info_success:
                         stop_frame += 1
@@ -587,12 +564,6 @@ def play_one_real_sim_visual_demo(args, demo, real_demo=None, real_images=None, 
                     if stop_frame == 16:
                         break
                         
-        if grasp_frame/len(visual_baked['obs']) < 0.1:
-            info_success = False
-                
-        print("grasp_frame: ", grasp_frame)
-        print("total_frame: ", len(visual_baked['obs']))
-        
         return visual_baked, meta_data, info_success
                
 
