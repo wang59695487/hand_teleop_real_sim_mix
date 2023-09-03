@@ -115,7 +115,7 @@ def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_ba
     with open('{}/{}_dataset.pickle'.format(dataset_folder, backbone_type.replace("/", "")),'rb') as file:
         data = pickle.load(file)
 
-   
+    real_demo_length = 0
     for i in range(len(data["sim_real_label"])):
         if data["sim_real_label"][i] == 1:
             real_demo_length = i + 1      
