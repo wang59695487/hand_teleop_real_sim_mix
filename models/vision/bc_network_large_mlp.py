@@ -28,9 +28,9 @@ class BCNetwork(nn.Module):
         self.real_bn1 = nn.BatchNorm1d(int(obs_dim/4))
         self.sim_bn1 = nn.BatchNorm1d(int(obs_dim/4))
 
-        # # self.l2 = nn.Linear(int(obs_dim/4), int(obs_dim/2))
-        # # self.real_bn2 = nn.BatchNorm1d(int(obs_dim/2))
-        # # self.sim_bn2 = nn.BatchNorm1d(int(obs_dim/2))
+        # self.l2 = nn.Linear(int(obs_dim/4), int(obs_dim/2))
+        # self.real_bn2 = nn.BatchNorm1d(int(obs_dim/2))
+        # self.sim_bn2 = nn.BatchNorm1d(int(obs_dim/2))
 
         self.vis_out = nn.Linear(int(obs_dim/4), int(obs_dim/2))
         #self.vis_out = nn.Linear(int(obs_dim/4), int(obs_dim/2))
@@ -49,18 +49,18 @@ class BCNetwork(nn.Module):
         self.sim_bn4 = nn.BatchNorm1d(int(self.chin/4))
         self.drop4 = nn.Dropout(dropout)
 
-        self.l5 = nn.Linear(int(self.chin/4), int(self.chin/8))
-        self.bn5 = nn.BatchNorm1d(int(self.chin/8))
-        self.real_bn5 = nn.BatchNorm1d(int(self.chin/8))
-        self.sim_bn5 = nn.BatchNorm1d(int(self.chin/8))
+        self.l5 = nn.Linear(int(self.chin/4), int(self.chin/2))
+        self.bn5 = nn.BatchNorm1d(int(self.chin/2))
+        self.real_bn5 = nn.BatchNorm1d(int(self.chin/2))
+        self.sim_bn5 = nn.BatchNorm1d(int(self.chin/2))
         self.drop5 = nn.Dropout(dropout)
 
-        self.l6 = nn.Linear(int(self.chin/8), int(self.chin/4))
-        self.bn6 = nn.BatchNorm1d(int(self.chin/4))
-        self.real_bn6 = nn.BatchNorm1d(int(self.chin/4))
-        self.sim_bn6 = nn.BatchNorm1d(int(self.chin/4))
+        # self.l6 = nn.Linear(int(self.chin/8), int(self.chin/4))
+        # self.bn6 = nn.BatchNorm1d(int(self.chin/4))
+        # self.real_bn6 = nn.BatchNorm1d(int(self.chin/4))
+        # self.sim_bn6 = nn.BatchNorm1d(int(self.chin/4))
 
-        self.l7 = nn.Linear(int(self.chin/4), action_dim)
+        self.l7 = nn.Linear(int(self.chin/2), action_dim)
         self.pn_drop = nn.Dropout(dropout)
 
     
@@ -69,23 +69,23 @@ class BCNetwork(nn.Module):
         if all(sim_real_label) and any(sim_real_label):
             x = torch.relu(self.real_bn0(self.l0(concatenated_obs)))
             x = torch.relu(self.real_bn1(self.l1(x)))
-            x = torch.cat([self.vis_out(x),robot_qpos], dim = 1)
+            x = torch.cat([self.vis_drop(self.vis_out(x)),robot_qpos], dim = 1)
             x = torch.relu(self.real_bn3(self.l3(x)))
             x = torch.relu(self.real_bn4(self.l4(x)))
             x = torch.relu(self.real_bn5(self.l5(x)))
-            x = torch.relu(self.real_bn6(self.l6(x)))
-            action = self.l7(x)
+            # x = torch.relu(self.real_bn6(self.l6(x)))
+            action = self.pndrop(self.l7(x))
 
         elif not all(sim_real_label) and not any(sim_real_label):
            
             x = torch.relu(self.sim_bn0(self.l0(concatenated_obs)))
             x = torch.relu(self.sim_bn1(self.l1(x)))
-            x = torch.cat([self.vis_out(x),robot_qpos], dim = 1)
+            x = torch.cat([self.vis_drop(self.vis_out(x)),robot_qpos], dim = 1)
             x = torch.relu(self.sim_bn3(self.l3(x)))
             x = torch.relu(self.sim_bn4(self.l4(x)))
             x = torch.relu(self.sim_bn5(self.l5(x)))
             x = torch.relu(self.sim_bn6(self.l6(x)))
-            action = self.l7(x)
+            action = self.pndrop(self.l7(x))
             
         else:
             raise NotImplementedError

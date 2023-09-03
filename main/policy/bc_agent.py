@@ -76,7 +76,7 @@ class BCSSAgent(object):
             visual_encoder_params = [p for p in self.bc_visual_encoder.parameters() if p.requires_grad]
             params = visual_encoder_params + params
         #self.bc_module_optimizer = torch.optim.AdamW(params=params, lr=bc_lr, weight_decay=0.01)
-        self.bc_module_optimizer = torch.optim.AdamW(params=params, lr=bc_lr, betas=[0.9,0.999], weight_decay=self.weight_decay, eps=1.0e-8)
+        self.bc_module_optimizer = torch.optim.AdamW(params=params, lr=bc_lr, betas=[0.9,0.999], weight_decay=self.weight_decay)
 
     def init_ss_optimizers(self, ss_visual_encoder_lr, inv_lr, ss_state_encoder_lr):
         params = [p for p in self.ss_visual_encoder.parameters() if p.requires_grad]

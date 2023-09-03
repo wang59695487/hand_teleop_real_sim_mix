@@ -342,33 +342,33 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
     loss_train_real = 0
     loss_train_sim = 0
 
-    for _ in tqdm(range(it_per_epoch_real)):
-        loss_real = compute_loss(agent,bc_train_dataloader_real,L,epoch)
-        # loss_real_weight = loss_real.detach()
-        # loss_real_weight = torch.reciprocal(loss_real_weight)
-        #bc_loss = sim_real_ratio*loss_real + loss_sim
-        #if sim batch_size == real batch size, we don't need bc_loss here
-        #bc_loss = loss_real + loss_sim
-        agent.update(sim_real_ratio*loss_real, L, epoch)
-        loss_train_real += loss_real.detach().cpu().item()
-     
-    for _ in tqdm(range(it_per_epoch_sim)):
-        loss_sim = compute_loss(agent,bc_train_dataloader_sim,L,epoch)
-        # loss_sim_weight = loss_sim.detach()
-        # loss_sim_weight = torch.reciprocal(loss_sim_weight)
-        #bc_loss = sim_real_ratio*loss_real + loss_sim
-        #if sim batch_size == real batch size, we don't need bc_loss here
-        #bc_loss = loss_real + loss_sim
-        agent.update(loss_sim, L, epoch)
-        loss_train_sim += loss_sim.detach().cpu().item()
-    
-    # for _ in tqdm(range(it_per_epoch_sim)):
+    # for _ in tqdm(range(it_per_epoch_real)):
     #     loss_real = compute_loss(agent,bc_train_dataloader_real,L,epoch)
-    #     loss_sim = compute_loss(agent,bc_train_dataloader_sim,L,epoch)
-    #     bc_loss = loss_real + loss_sim
-    #     agent.update(bc_loss, L, epoch)
+    #     # loss_real_weight = loss_real.detach()
+    #     # loss_real_weight = torch.reciprocal(loss_real_weight)
+    #     #bc_loss = sim_real_ratio*loss_real + loss_sim
+    #     #if sim batch_size == real batch size, we don't need bc_loss here
+    #     #bc_loss = loss_real + loss_sim
+    #     agent.update(sim_real_ratio*loss_real, L, epoch)
     #     loss_train_real += loss_real.detach().cpu().item()
+     
+    # for _ in tqdm(range(it_per_epoch_sim)):
+    #     loss_sim = compute_loss(agent,bc_train_dataloader_sim,L,epoch)
+    #     # loss_sim_weight = loss_sim.detach()
+    #     # loss_sim_weight = torch.reciprocal(loss_sim_weight)
+    #     #bc_loss = sim_real_ratio*loss_real + loss_sim
+    #     #if sim batch_size == real batch size, we don't need bc_loss here
+    #     #bc_loss = loss_real + loss_sim
+    #     agent.update(loss_sim, L, epoch)
     #     loss_train_sim += loss_sim.detach().cpu().item()
+    
+    for _ in tqdm(range(it_per_epoch_sim)):
+        loss_real = compute_loss(agent,bc_train_dataloader_real,L,epoch)
+        loss_sim = compute_loss(agent,bc_train_dataloader_sim,L,epoch)
+        bc_loss = sim_real_ratio*loss_real + loss_sim
+        agent.update(bc_loss, L, epoch)
+        loss_train_real += loss_real.detach().cpu().item()
+        loss_train_sim += loss_sim.detach().cpu().item()
 
     agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
 
