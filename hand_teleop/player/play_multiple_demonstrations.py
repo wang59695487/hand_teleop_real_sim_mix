@@ -492,7 +492,7 @@ def play_one_real_sim_visual_demo(args, demo, real_demo=None, real_images=None, 
                     if task_name == "pick_place":
                         if np.mean(handqpos2angle(delta_hand_qpos)) > 1 :
                             ###########################Grasping augmentation############################
-                            for _ in range(15):
+                            for _ in range(5):
                                 visual_baked["obs"].append(observation)
                                 visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                                 # Using robot qpos version
@@ -570,7 +570,7 @@ def play_one_real_sim_visual_demo(args, demo, real_demo=None, real_images=None, 
                     if task_name == "pick_place":
                         if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
                             ###########################Grasping augmentation############################
-                            for _ in range(15):
+                            for _ in range(5):
                                 visual_baked["obs"].append(observation)
                                 visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                                 # Using robot qpos version

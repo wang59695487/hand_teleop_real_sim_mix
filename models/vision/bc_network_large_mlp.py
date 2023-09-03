@@ -69,23 +69,23 @@ class BCNetwork(nn.Module):
         if all(sim_real_label) and any(sim_real_label):
             x = torch.relu(self.real_bn0(self.l0(concatenated_obs)))
             x = torch.relu(self.real_bn1(self.l1(x)))
-            x = torch.cat([self.vis_drop(self.vis_out(x)),robot_qpos], dim = 1)
+            x = torch.cat([self.vis_out(x),robot_qpos], dim = 1)
             x = torch.relu(self.real_bn3(self.l3(x)))
             x = torch.relu(self.real_bn4(self.l4(x)))
             x = torch.relu(self.real_bn5(self.l5(x)))
             x = torch.relu(self.real_bn6(self.l6(x)))
-            action = self.l7(self.pn_drop(x))
+            action = self.l7(x)
 
         elif not all(sim_real_label) and not any(sim_real_label):
            
             x = torch.relu(self.sim_bn0(self.l0(concatenated_obs)))
             x = torch.relu(self.sim_bn1(self.l1(x)))
-            x = torch.cat([self.vis_drop(self.vis_out(x)),robot_qpos], dim = 1)
+            x = torch.cat([self.vis_out(x),robot_qpos], dim = 1)
             x = torch.relu(self.sim_bn3(self.l3(x)))
             x = torch.relu(self.sim_bn4(self.l4(x)))
             x = torch.relu(self.sim_bn5(self.l5(x)))
             x = torch.relu(self.sim_bn6(self.l6(x)))
-            action = self.l7(self.pn_drop(x))
+            action = self.l7(x)
             
         else:
             raise NotImplementedError

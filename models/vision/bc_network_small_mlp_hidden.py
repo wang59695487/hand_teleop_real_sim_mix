@@ -6,14 +6,12 @@ import torch.nn.functional as F
 
 
 class BCNetwork(nn.Module):
-    def __init__(self, obs_dim, robot_qpos_dim, action_dim, hidden_dim):
+    def __init__(self, obs_dim, robot_qpos_dim, action_dim, hidden_dim=1200):
         super().__init__()
 
-        dropout = 0.1
-
-        self.l0 = nn.Linear(obs_dim, int(obs_dim/2))
-        self.real_bn0 = nn.BatchNorm1d(int(obs_dim/2))
-        self.sim_bn0 = nn.BatchNorm1d(int(obs_dim/2))
+        self.l0 = nn.Linear(obs_dim, hidden_dim)
+        self.real_bn0 = nn.BatchNorm1d(hidden_dim)
+        self.sim_bn0 = nn.BatchNorm1d(hidden_dim)
 
         # self.l1 = nn.Linear(int(obs_dim/2), int(obs_dim/4))
         # self.real_bn1 = nn.BatchNorm1d(int(obs_dim/4))
@@ -23,34 +21,30 @@ class BCNetwork(nn.Module):
         # # self.real_bn2 = nn.BatchNorm1d(int(obs_dim/2))
         # # self.sim_bn2 = nn.BatchNorm1d(int(obs_dim/2))
 
-        self.vis_out = nn.Linear(int(obs_dim/2), int(obs_dim/4))
-        self.vis_drop = nn.Dropout(dropout)
+        self.vis_out = nn.Linear(hidden_dim, obs_dim)
         
-        self.chin = int(obs_dim/4)+robot_qpos_dim
-        self.l3 = nn.Linear(self.chin, int(self.chin/2))
-        self.bn3 = nn.BatchNorm1d(int(self.chin/2))
-        self.real_bn3 = nn.BatchNorm1d(int(self.chin/2))
-        self.sim_bn3 = nn.BatchNorm1d(int(self.chin/2))
-        self.drop3 = nn.Dropout(dropout)
+        self.chin = obs_dim+robot_qpos_dim
+        self.l3 = nn.Linear(self.chin, hidden_dim)
+        self.bn3 = nn.BatchNorm1d(hidden_dim)
+        self.real_bn3 = nn.BatchNorm1d(hidden_dim)
+        self.sim_bn3 = nn.BatchNorm1d(hidden_dim)
 
-        self.l4 = nn.Linear(int(self.chin/2), int(self.chin/4))
-        self.bn4 = nn.BatchNorm1d(int(self.chin/4))
-        self.real_bn4 = nn.BatchNorm1d(int(self.chin/4))
-        self.sim_bn4 = nn.BatchNorm1d(int(self.chin/4))
-        self.drop4 = nn.Dropout(dropout)
+        self.l4 = nn.Linear(hidden_dim, hidden_dim)
+        self.bn4 = nn.BatchNorm1d(hidden_dim)
+        self.real_bn4 = nn.BatchNorm1d(hidden_dim)
+        self.sim_bn4 = nn.BatchNorm1d(hidden_dim)
 
-        # self.l5 = nn.Linear(int(self.chin/4), int(self.chin/8))
-        # self.bn5 = nn.BatchNorm1d(int(self.chin/8))
-        # self.real_bn5 = nn.BatchNorm1d(int(self.chin/8))
-        # self.sim_bn5 = nn.BatchNorm1d(int(self.chin/8))
-        # self.drop5 = nn.Dropout(dropout)
+        # self.l5 = nn.Linear(hidden_dim, hidden_dim)
+        # self.bn5 = nn.BatchNorm1d(hidden_dim)
+        # self.real_bn5 = nn.BatchNorm1d(hidden_dim)
+        # self.sim_bn5 = nn.BatchNorm1d(hidden_dim)
 
-        # self.l6 = nn.Linear(int(self.chin/8), int(self.chin/4))
-        # self.bn6 = nn.BatchNorm1d(int(self.chin/4))
-        # self.real_bn6 = nn.BatchNorm1d(int(self.chin/4))
-        # self.sim_bn6 = nn.BatchNorm1d(int(self.chin/4))
+        # self.l6 = nn.Linear(hidden_dim, hidden_dim)
+        # self.bn6 = nn.BatchNorm1d(hidden_dim)
+        # self.real_bn6 = nn.BatchNorm1d(hidden_dim)
+        # self.sim_bn6 = nn.BatchNorm1d(hidden_dim)
 
-        self.l7 = nn.Linear(int(self.chin/4), action_dim)
+        self.l7 = nn.Linear(hidden_dim, action_dim)
         self.pn_drop = nn.Dropout(dropout)
 
     
