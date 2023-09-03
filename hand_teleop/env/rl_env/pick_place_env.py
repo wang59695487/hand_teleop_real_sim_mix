@@ -49,7 +49,7 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
         self.add_lignt(mode=light_mode)    
         
 
-    def add_lignt(self,mode="random"):
+    def add_lignt(self,mode="default"):
         if mode == "random":
             print(f"###############################Add Random Scene Light####################################")
             add_random_scene_light(self.scene, self.renderer, self.randomness_scale)  

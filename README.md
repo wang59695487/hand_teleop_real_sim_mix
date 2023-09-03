@@ -21,9 +21,13 @@ nohup python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=
 
 nohup python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/pick_place_mustard_bottle_small_scale --out-folder=real/baked_data/pick_place_mustard_bottle_small_scale --task-name=pick_place --object-name=mustard_bottle --frame-skip=1 --delta-ee-pose-bound=0.0005 --light-mode=default > ./logs/play_real_demo 2>&1 &
 
-python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/pick_place_mustard_bottle_large_scale --sim-folder=sim/raw_data/pick_place_mustard_bottle --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle --task-name=pick_place --object-name=mustard_bottle --frame-skip=1 --sim-delta-ee-pose-bound=0.0005 --real-delta-ee-pose-bound=0.0005 --light-mode=default --img-data-aug=5 --kinematic-aug=50 --delta-object-hand-bound=0.002 --detection-bound=0.25 
+python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/pick_place_mustard_bottle_large_scale --sim-folder=sim/raw_data/pick_place_mustard_bottle --out-folder=real_sim_mix/baked_data/pick_place_mustard_bottle --task-name=pick_place --object-name=mustard_bottle --frame-skip=1 --sim-delta-ee-pose-bound=0.0005 --real-delta-ee-pose-bound=0.0005 --light-mode=random --img-data-aug=3 --kinematic-aug=85 --delta-object-hand-bound=0 --detection-bound=0.25 
+#Real_Demos: 97415 Sim_Demos: 233509
 
-#Real_Demos: 12815 Sim_Demos: 48735
+nohup python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/pick_place_mustard_bottle_small_scale --sim-folder=sim/raw_data/pick_place_mustard_bottle --out-folder=real_sim_mix/baked_data/pick_place_mb_small_scale_wo_ran_light --task-name=pick_place --object-name=mustard_bottle --frame-skip=1 --sim-delta-ee-pose-bound=0.001 --real-delta-ee-pose-bound=0.0005 --light-mode=default --img-data-aug=5 --kinematic-aug=50 --delta-object-hand-bound=0 --detection-bound=0.25 > ./logs/play_real_sim_demo 2>&1 &
+
+# Real_Demos: 51315 Sim_Demos: 241299
+
 
 ```
 Currently, these following backbones are supported:
@@ -48,25 +52,25 @@ nohup python main/train_real_sim.py \
     --eval-freq=100 > ./logs/train_real_sim 2>&1 &
 
 nohup python main/train_real_sim.py \
-    --demo-folder=real_sim_mix/baked_data/pick_place_mb_small_scale_wo_ran_light \
+    --demo-folder=real_sim_mix/baked_data/pick_place_mustard_bottle \
     --backbone-type=regnet_y_3_2gf \
     --lr=2e-4 \
-    --sim-batch-size=16384 \
-    --real-batch-size=65536 \
+    --sim-batch-size=65536 \
+    --real-batch-size=32768 \
     --num-epochs=3000 \
     --eval-freq=100 \
     --eval-start-epoch=100 \
     --val-ratio=0.05 > ./logs/train_real_sim 2>&1 &
 
 nohup python main/train_real_sim.py \
-    --demo-folder=real_sim_mix/baked_data/pick_place_mustard_bottle \
+    --demo-folder=real_sim_mix/baked_data/pick_place_mb_small_scale_wo_ran_light \
     --backbone-type=regnet_y_3_2gf \
     --lr=2e-5 \
-    --sim-batch-size=40000 \
-    --real-batch-size=10000 \
-    --num-epochs=2000 \
+    --sim-batch-size=50000 \
+    --real-batch-size=50000 \
+    --num-epochs=3000 \
     --eval-freq=100 \
-    --val-ratio=0.05 \
+    --val-ratio=0.1 \
     --eval-start-epoch=400 > ./logs/train_real_sim 2>&1 &
 
 python main/train_real_sim.py \

@@ -180,7 +180,6 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
     eval_idx = 0
     avg_success = 0
     progress = tqdm(total=x_steps * y_steps)
-
     # since in simulation, we always use simulated data, so sim_real_label is always 0
     sim_real_label = [0]
     for x in np.linspace(-0.08, 0.08, x_steps):        # -0.05 0 /// -0.1 0 // -0.1 0.1
@@ -470,13 +469,13 @@ def train_real_sim(args):
                     "epoch": epoch
                 }
             
-            if (epoch + 1) % args["eval_freq"] == 0 and (epoch+1) >= args["eval_start_epoch"]:
+            if (epoch + 1) % args["eval_freq"] == 0:
                 #total_steps = x_steps * y_steps = 4 * 5 = 20
-                # if Prepared_Data['data_type'] != "real":
-                #     avg_success = eval_in_env(args, agent, log_dir, epoch + 1, 4, 5)
-                #     metrics["avg_success"] = avg_success
-                #     if avg_success > best_success:
-                #         agent.save(os.path.join(log_dir, f"epoch_best.pt"), args)
+                if Prepared_Data['data_type'] != "real" and (epoch+1) >= args["eval_start_epoch"]:
+                    avg_success = eval_in_env(args, agent, log_dir, epoch + 1, 4, 5)
+                    metrics["avg_success"] = avg_success
+                    if avg_success > best_success:
+                        agent.save(os.path.join(log_dir, f"epoch_best.pt"), args)
 
                 agent.save(os.path.join(log_dir, f"epoch_{epoch + 1}.pt"), args)
                 
@@ -487,12 +486,12 @@ def train_real_sim(args):
                 train_inv=args['train_inv'])
             wandb.log(metrics)
         
-        # if Prepared_Data['data_type'] != "real":
-        #     agent.load(os.path.join(log_dir, "epoch_best.pt"))
-        #     agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
-        #     final_success = eval_in_env(args, agent, log_dir, "best", 10, 10)
-        #     wandb.log({"final_success": final_success})
-        #     print(f"Final success rate: {final_success:.4f}")
+        if Prepared_Data['data_type'] != "real":
+            agent.load(os.path.join(log_dir, "epoch_best.pt"))
+            agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
+            final_success = eval_in_env(args, agent, log_dir, "best", 10, 10)
+            wandb.log({"final_success": final_success})
+            print(f"Final success rate: {final_success:.4f}")
         
         wandb.finish()
 
