@@ -341,16 +341,6 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
     
     loss_train_real = 0
     loss_train_sim = 0
-        
-    for _ in tqdm(range(it_per_epoch_real)):
-        loss_real = compute_loss(agent,bc_train_dataloader_real,L,epoch)
-        # loss_real_weight = loss_real.detach()
-        # loss_real_weight = torch.reciprocal(loss_real_weight)
-        #bc_loss = sim_real_ratio*loss_real + loss_sim
-        #if sim batch_size == real batch size, we don't need bc_loss here
-        #bc_loss = loss_real + loss_sim
-        agent.update(sim_real_ratio*loss_real, L, epoch)
-        loss_train_real += loss_real.detach().cpu().item()
 
     for _ in tqdm(range(it_per_epoch_sim)):
         loss_sim = compute_loss(agent,bc_train_dataloader_sim,L,epoch)
@@ -361,6 +351,17 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
         #bc_loss = loss_real + loss_sim
         agent.update(loss_sim, L, epoch)
         loss_train_sim += loss_sim.detach().cpu().item()
+    
+
+    for _ in tqdm(range(it_per_epoch_real)):
+        loss_real = compute_loss(agent,bc_train_dataloader_real,L,epoch)
+        # loss_real_weight = loss_real.detach()
+        # loss_real_weight = torch.reciprocal(loss_real_weight)
+        #bc_loss = sim_real_ratio*loss_real + loss_sim
+        #if sim batch_size == real batch size, we don't need bc_loss here
+        #bc_loss = loss_real + loss_sim
+        agent.update(sim_real_ratio*loss_real, L, epoch)
+        loss_train_real += loss_real.detach().cpu().item()
     
     # for _ in tqdm(range(it_per_epoch_sim)):
     #     loss_real = compute_loss(agent,bc_train_dataloader_real,L,epoch)
@@ -374,6 +375,7 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
 
     loss_val_real = evaluate(agent, bc_validation_dataloader_real, L, epoch)
     loss_val_sim = evaluate(agent, bc_validation_dataloader_sim, L, epoch)
+
 
     return loss_train_real/len(bc_train_dataloader_real), loss_train_sim/len(bc_train_dataloader_sim), loss_val_real, loss_val_sim
 
@@ -430,6 +432,7 @@ def train_real_sim(args):
                        args=args, 
                        frame_stack=args['frame_stack']
                        )
+
     # Add lr_scheduler
     if Prepared_Data['data_type'] == "real_sim":
         T_0 = Prepared_Data['it_per_epoch_real']+Prepared_Data['it_per_epoch_sim']
@@ -437,6 +440,7 @@ def train_real_sim(args):
     else:
         T_0 = Prepared_Data['it_per_epoch']
         agent.init_bc_scheduler(T_0=Prepared_Data['it_per_epoch'],T_mult=2)
+
     L = Logger("{}_{}".format(args['model_name'],args['num_epochs']))
 
     if not args["eval_only"]:
