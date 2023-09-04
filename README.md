@@ -61,9 +61,9 @@ nohup python main/train_real_sim.py \
 nohup python main/train_real_sim.py \
     --demo-folder=real_sim_mix/baked_data/pick_place_mb_large_w_light \
     --backbone-type=regnet_y_3_2gf \
-    --lr=2e-5 \
+    --lr=2e-4 \
     --sim-batch-size=65536 \
-    --real-batch-size=16384 \
+    --real-batch-size=32768 \
     --num-epochs=3200 \
     --eval-freq=100 \
     --eval-start-epoch=1200 \
@@ -73,12 +73,12 @@ nohup python main/train_real_sim.py \
 nohup python main/train_real_sim.py \
     --demo-folder=real_sim_mix/baked_data/pick_place_mb_small_w_light \
     --backbone-type=regnet_y_3_2gf \
-    --lr=2e-3 \
+    --lr=2e-5 \
     --sim-batch-size=65536 \
-    --real-batch-size=16384 \
-    --num-epochs=3200 \
+    --real-batch-size=32768 \
+    --num-epochs=3600 \
     --eval-freq=100 \
-    --eval-start-epoch=1200 \
+    --eval-start-epoch=4000 \
     --val-ratio=0.05 > ./logs/train_real_sim 2>&1 &
     
 

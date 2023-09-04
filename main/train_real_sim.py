@@ -353,7 +353,7 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
         loss_train_sim += loss_sim.detach().cpu().item()
     
 
-    for _ in tqdm(range(it_per_epoch_real)):
+    for _ in tqdm(range(it_per_epoch_sim)):
         loss_real = compute_loss(agent,bc_train_dataloader_real,L,epoch)
         # loss_real_weight = loss_real.detach()
         # loss_real_weight = torch.reciprocal(loss_real_weight)
@@ -377,7 +377,7 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
     loss_val_sim = evaluate(agent, bc_validation_dataloader_sim, L, epoch)
 
 
-    return loss_train_real/len(bc_train_dataloader_real), loss_train_sim/len(bc_train_dataloader_sim), loss_val_real, loss_val_sim
+    return loss_train_real/(len(bc_train_dataloader_real)*it_per_epoch_sim), loss_train_sim/len(bc_train_dataloader_sim), loss_val_real, loss_val_sim
 
 def train_in_one_epoch(agent, it_per_epoch, bc_train_dataloader, bc_validation_dataloader, L, epoch):
     
