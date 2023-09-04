@@ -78,8 +78,8 @@ class BCSSAgent(object):
         #self.bc_module_optimizer = torch.optim.AdamW(params=params, lr=bc_lr, weight_decay=0.01)
         self.bc_module_optimizer = torch.optim.AdamW(params=params, lr=bc_lr, betas=[0.9,0.999], weight_decay=self.weight_decay)
 
-    # def init_bc_scheduler(self, T_0, T_mult):
-    #     self.bc_module_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer=self.bc_module_optimizer, T_0 = T_0, T_mult=T_mult, eta_min=0, last_epoch=- 1, verbose=False)
+    def init_bc_scheduler(self, T_0, T_mult):
+        self.bc_module_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer=self.bc_module_optimizer, T_0 = T_0, T_mult=T_mult, eta_min=0, last_epoch=- 1, verbose=False)
 
     def init_ss_optimizers(self, ss_visual_encoder_lr, inv_lr, ss_state_encoder_lr):
         params = [p for p in self.ss_visual_encoder.parameters() if p.requires_grad]
@@ -244,7 +244,7 @@ class BCSSAgent(object):
         self.bc_module_optimizer.zero_grad()
         bc_loss.backward()
         self.bc_module_optimizer.step()
-        #self.bc_module_scheduler.step()
+        self.bc_module_scheduler.step()
 
         # if self.inv is not None and step % self.ss_update_freq == 0:
         #     next_obs = next_obs.to(device)
