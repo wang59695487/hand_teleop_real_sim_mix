@@ -62,7 +62,7 @@ nohup python main/train_real_sim.py \
     --demo-folder=real_sim_mix/baked_data/pick_place_mb_large_w_light \
     --backbone-type=regnet_y_3_2gf \
     --lr=2e-5 \
-    --sim-batch-size=32768 \
+    --sim-batch-size=65536 \
     --real-batch-size=16384 \
     --num-epochs=3200 \
     --eval-freq=100 \
