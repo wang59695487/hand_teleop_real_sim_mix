@@ -438,8 +438,8 @@ def train_real_sim(args):
         T_0 = Prepared_Data['it_per_epoch_real']+Prepared_Data['it_per_epoch_sim']
         agent.init_bc_scheduler(T_0=T_0,T_mult=2)
     else:
-        T_0 = Prepared_Data['it_per_epoch']
-        agent.init_bc_scheduler(T_0=Prepared_Data['it_per_epoch'],T_mult=2)
+        T_0 = Prepared_Data['it_per_epoch']*5
+        agent.init_bc_scheduler(T_0=T_0,T_mult=2)
 
     L = Logger("{}_{}".format(args['model_name'],args['num_epochs']))
 
