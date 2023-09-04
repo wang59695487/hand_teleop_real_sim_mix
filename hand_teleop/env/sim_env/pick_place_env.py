@@ -11,9 +11,12 @@ from hand_teleop.utils.render_scene_utils import set_entity_color
 from hand_teleop.utils.ycb_object_utils import load_ycb_object, YCB_SIZE, YCB_ORIENTATION
 from hand_teleop.utils.egad_object_utils import load_egad_object, EGAD_NAME
 
+
 class PickPlaceEnv(BaseSimulationEnv):
-    def __init__(self, use_gui=True, frame_skip=5, object_category="YCB", object_name="tomato_soup_can", object_seed = 0,
-                 object_scale=1.0, randomness_scale=1, friction=1, use_visual_obs=False, init_obj_pos: Optional[sapien.Pose] = None, init_target_pos: Optional[sapien.Pose] = None, **renderer_kwargs):
+    def __init__(self, use_gui=True, frame_skip=5, object_category="YCB", object_name="tomato_soup_can", object_seed=0,
+                 object_scale=1.0, randomness_scale=1, friction=1, use_visual_obs=False,
+                 init_obj_pos: Optional[sapien.Pose] = None, init_target_pos: Optional[sapien.Pose] = None,
+                 **renderer_kwargs):
         super().__init__(use_gui=use_gui, frame_skip=frame_skip, use_visual_obs=use_visual_obs, **renderer_kwargs)
 
         # Object info
@@ -37,16 +40,20 @@ class PickPlaceEnv(BaseSimulationEnv):
         self.friction = friction
 
         # Construct scene
-        self.scene = self.engine.create_scene()
+        scene_config = sapien.SceneConfig()
+        if "address" in renderer_kwargs:
+            scene_config.disable_collision_visual = True
+        self.scene = self.engine.create_scene(scene_config)
         self.scene.set_timestep(0.004)
 
         # Dummy camera creation to initial geometry object
-        if self.renderer and not self.no_rgb:
-            cam = self.scene.add_camera("init_not_used", width=10, height=10, fovy=1, near=0.1, far=1)
-            self.scene.remove_camera(cam)
+        if "address" not in renderer_kwargs:
+            if self.renderer and not self.no_rgb:
+                cam = self.scene.add_camera("init_not_used", width=10, height=10, fovy=1, near=0.1, far=1)
+                self.scene.remove_camera(cam)
 
         # Load table
-        #self.tables = self.create_lab_tables(table_height=0.73)
+        # self.tables = self.create_lab_tables(table_height=0.73)
         self.tables = self.create_lab_tables(table_height=0.91)
         # self.tables = self.create_table(table_height=0.6, table_half_size=[0.65, 0.65, 0.025])
 
@@ -68,23 +75,23 @@ class PickPlaceEnv(BaseSimulationEnv):
             self.manipulated_object.set_pose(self.init_pose)
         else:
             raise NotImplementedError
-        
+
         print('################################Randomizing Object Texture##########################')
-        self.generate_random_object_texture(randomness_scale)
-    
+        # self.generate_random_object_texture(randomness_scale)
+
     def generate_random_object_pose(self, randomness_scale):
         # Small Random
         # pos_x = self.np_random.uniform(low=-0.1, high=0) * randomness_scale
         # pos_y = self.np_random.uniform(low=0.1, high=0.2) * randomness_scale
         # position = np.array([pos_x, pos_y, 0.1])
         ####### new random ########
-        #pos_x = self.np_random.uniform(low=-0.1, high=0.1) * randomness_scale
-        #pos_y = self.np_random.uniform(low=0.2, high=0.3) * randomness_scale
+        # pos_x = self.np_random.uniform(low=-0.1, high=0.1) * randomness_scale
+        # pos_y = self.np_random.uniform(low=0.2, high=0.3) * randomness_scale
         random.seed(self.object_seed)
         pos_x = random.uniform(-0.1, 0.1) * randomness_scale
         pos_y = random.uniform(0.2, 0.3) * randomness_scale
         position = np.array([pos_x, pos_y, 0.1])
-        #euler = self.np_random.uniform(low=np.deg2rad(15), high=np.deg2rad(25))
+        # euler = self.np_random.uniform(low=np.deg2rad(15), high=np.deg2rad(25))
         if self.object_name != "sugar_box":
             euler = random.uniform(np.deg2rad(15), np.deg2rad(25))
         else:
@@ -92,7 +99,6 @@ class PickPlaceEnv(BaseSimulationEnv):
         orientation = transforms3d.euler.euler2quat(0, 0, euler)
         random_pose = sapien.Pose(position, orientation)
         return random_pose
-
 
     def generate_random_object_texture(self, randomness_scale):
         var = 0.3 * randomness_scale
@@ -102,28 +108,26 @@ class PickPlaceEnv(BaseSimulationEnv):
                 mat = geom.material
                 mat.set_base_color(default_color)
                 mat.set_specular(random.uniform(0, var))
-                mat.set_roughness(random.uniform(0.7-var, 0.7+var))
+                mat.set_roughness(random.uniform(0.7 - var, 0.7 + var))
                 mat.set_metallic(random.uniform(0, var))
                 geom.set_material(mat)
-                
+
         for table in self.tables:
             for visual in table.get_visual_bodies():
                 for geom in visual.get_render_shapes():
                     mat = geom.material
                     mat.set_specular(random.uniform(0, var))
-                    mat.set_roughness(random.uniform(0.7-var, 0.7+var))
+                    mat.set_roughness(random.uniform(0.7 - var, 0.7 + var))
                     mat.set_metallic(random.uniform(0, var))
                     geom.set_material(mat)
-        
+
         for visual in self.manipulated_object.get_visual_bodies():
             for geom in visual.get_render_shapes():
                 mat = geom.material
                 mat.set_specular(random.uniform(0, var))
-                mat.set_roughness(random.uniform(0.7-var, 0.7+var))
+                mat.set_roughness(random.uniform(0.7 - var, 0.7 + var))
                 mat.set_metallic(random.uniform(0, var))
                 geom.set_material(mat)
-                  
-
 
     def generate_random_target_pose(self, randomness_scale):
         pos_x = self.np_random.uniform(low=-0.15, high=0.15) * randomness_scale
@@ -131,11 +135,11 @@ class PickPlaceEnv(BaseSimulationEnv):
         random_pose = sapien.Pose([pos_x, pos_y, 0.1])
 
         ###################0.73 setting###############################
-        #random_pose = sapien.Pose([0.05, -0.2, 0.1])
+        # random_pose = sapien.Pose([0.05, -0.2, 0.1])
         random_pose = sapien.Pose([-0.005, -0.12, 0])
 
         return random_pose
-    
+
     def reset_env(self):
         # pose = self.generate_random_object_pose(self.randomness_scale)
         # self.manipulated_object.set_pose(pose)
@@ -201,12 +205,12 @@ class PickPlaceEnv(BaseSimulationEnv):
         return object_table, robot_table
 
 
-
 def env_test():
     from sapien.utils import Viewer
     from constructor import add_default_scene_light
     randomness_scale = 1
-    env = PickPlaceEnv(object_name="tomato_soup_can", object_category="YCB", randomness_scale=randomness_scale, object_scale=0.8)
+    env = PickPlaceEnv(object_name="tomato_soup_can", object_category="YCB", randomness_scale=randomness_scale,
+                       object_scale=0.8)
     viewer = Viewer(env.renderer)
     viewer.set_scene(env.scene)
     add_default_scene_light(env.scene, env.renderer)

@@ -46,7 +46,7 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
 
         # Object init pose
         self.object_episode_init_pose = sapien.Pose()
-        self.add_lignt()
+        # self.add_lignt()
         
 
     def add_lignt(self,mode="train"):

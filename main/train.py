@@ -8,6 +8,7 @@ import wandb
 from omegaconf import OmegaConf
 
 from trainer import Trainer
+from vector_trainer import VecTrainer
 
 
 def parse_args():
@@ -58,6 +59,9 @@ def parse_args():
     parser.add_argument("--device", default="cuda:0", type=str)
     parser.add_argument("--wandb-off", action="store_true")
 
+    # number of render workers
+    parser.add_argument("--workers", default=4, type=int)
+
     args = parser.parse_args()
 
     if os.path.basename(args.demo_folder).startswith("pick_place"):
@@ -87,7 +91,10 @@ def main():
         torch.autograd.set_detect_anomaly(True)
 
     set_rng_seed(args.seed)
-    trainer = Trainer(args)
+    if args.workers > 1:
+        trainer = VecTrainer(args)
+    else:
+        trainer = Trainer(args)
 
     # player = trainer.init_player(trainer.demos_train[0])
 
@@ -114,7 +121,7 @@ def main():
         trainer.load_checkpoint(f"{trainer.log_dir}/model_best.pth", False)
 
     avg_success = trainer.eval_in_env(trainer.args, "best",
-        trainer.args.final_x_steps, trainer.args.final_y_steps)
+                                      trainer.args.final_x_steps, trainer.args.final_y_steps)
     print(f"Average success rate: {avg_success:.4f}")
     wandb.log({"final_success": avg_success})
 

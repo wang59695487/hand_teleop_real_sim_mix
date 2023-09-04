@@ -3,7 +3,6 @@ import os
 import zipfile
 from pathlib import Path
 
-
 import numpy as np
 import numpy.random as random
 
@@ -21,7 +20,7 @@ _use_ray_tracing = None
 
 
 def get_engine_and_renderer(use_gui=True, use_ray_tracing=False, device="", mipmap_levels=1,
-                            need_offscreen_render=False, no_rgb=False):
+                            need_offscreen_render=False, no_rgb=False, renderer="sapien", **renderer_kwargs):
     global _engine, _renderer
     no_rgb = no_rgb and (not use_gui)
     if _init:
@@ -40,17 +39,22 @@ def get_engine_and_renderer(use_gui=True, use_ray_tracing=False, device="", mipm
     if use_ray_tracing:
         raise NotImplementedError
     else:
+        render_config = {}
         if need_renderer:
-            # _renderer = sapien.VulkanRenderer(default_mipmap_levels=mipmap_levels, offscreen_only=not use_gui,
-            #                                   device=device, do_not_load_texture=no_rgb)
-            _renderer = sapien.VulkanRenderer(default_mipmap_levels=mipmap_levels, offscreen_only=not use_gui,
-                                              device=device)                                              
-            _engine.set_renderer(_renderer)
             if no_rgb:
+                render_config["camera_shader_dir"] = "trivial"
                 print(f"Use trivial renderer without color.")
-                sapien.VulkanRenderer.set_camera_shader_dir("trivial")
             else:
-                sapien.VulkanRenderer.set_camera_shader_dir("ibl")
+                render_config["camera_shader_dir"] = "ibl"
+            if renderer == "sapien":
+                _renderer = sapien.SapienRenderer(default_mipmap_levels=mipmap_levels, offscreen_only=not use_gui,
+                                                  device=device)
+                for k, v in render_config.items():
+                    setattr(sapien.render_config, k, v)
+            elif renderer == "client":
+                _renderer = sapien.RenderClient(**renderer_kwargs)
+
+            _engine.set_renderer(_renderer)
         if use_gui:
             sapien.VulkanRenderer.set_viewer_shader_dir("ibl")
             viewer = Viewer(_renderer)
@@ -107,9 +111,11 @@ def add_default_scene_light(scene: sapien.Scene, renderer: sapien.VulkanRenderer
     visual_material.set_metallic(1)
     visual_material.set_specular(0.04)
     if add_ground:
-        scene.add_ground(-1, render_material=visual_material, render_half_size=np.array([50,50]))
+        scene.add_ground(-1, render_material=visual_material, render_half_size=np.array([50, 50]))
 
-def add_random_scene_light(scene: sapien.Scene, renderer: sapien.VulkanRenderer,randomness_scale = 1, add_ground=True, cast_shadow=True):
+
+def add_random_scene_light(scene: sapien.Scene, renderer: sapien.VulkanRenderer, randomness_scale=1, add_ground=True,
+                           cast_shadow=True):
     # If the light is already set, then we just skip the function.
     if len(scene.get_all_lights()) >= 3:
         return
@@ -119,10 +125,13 @@ def add_random_scene_light(scene: sapien.Scene, renderer: sapien.VulkanRenderer,
 
     var = randomness_scale * 0.1
 
-    scene.add_directional_light(R.random().as_euler('zxy', degrees=False), random.uniform(0.5-var, 0.5+var,size=3), shadow=cast_shadow)
-    scene.add_directional_light(R.random().as_euler('zxy', degrees=False), random.uniform(0.9-var, 0.8+var, size=3), shadow=False)
-    scene.add_spot_light(R.random().as_euler('zxy', degrees=False), direction=R.random().as_euler('zxy', degrees=False), inner_fov=0.3, outer_fov=1.0,
-                         color=np.array(random.uniform(0.5-var, 0.5+var, size=3)), shadow=False)
+    scene.add_directional_light(R.random().as_euler('zxy', degrees=False), random.uniform(0.5 - var, 0.5 + var, size=3),
+                                shadow=cast_shadow)
+    scene.add_directional_light(R.random().as_euler('zxy', degrees=False), random.uniform(0.9 - var, 0.8 + var, size=3),
+                                shadow=False)
+    scene.add_spot_light(R.random().as_euler('zxy', degrees=False), direction=R.random().as_euler('zxy', degrees=False),
+                         inner_fov=0.3, outer_fov=1.0,
+                         color=np.array(random.uniform(0.5 - var, 0.5 + var, size=3)), shadow=False)
 
     visual_material = renderer.create_material()
     visual_material.set_base_color(np.array([0.5, 0.5, 0.5, 1]))
@@ -130,4 +139,4 @@ def add_random_scene_light(scene: sapien.Scene, renderer: sapien.VulkanRenderer,
     visual_material.set_metallic(1)
     visual_material.set_specular(0.04)
     if add_ground:
-        scene.add_ground(-1, render_material=visual_material, render_half_size=np.array([50,50]))
+        scene.add_ground(-1, render_material=visual_material, render_half_size=np.array([50, 50]))
