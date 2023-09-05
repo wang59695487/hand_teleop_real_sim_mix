@@ -60,7 +60,7 @@ class PickPlaceEnv(BaseSimulationEnv):
         # Load box/plate
         # self.box = self.load_partnet_obj(100426, scale = 0.3, material_spec=[1,1,0], density=100, fix_root=False)        
         # self.box.set_pose(sapien.Pose([0, 0, 0.1]))
-        self.plate = load_ycb_object(self.scene, "plate")
+        self.plate = load_ycb_object(self.scene, "plate", static=True)
         if init_target_pos is None:
             print('Randomizing Target Location')
             self.target_pose = self.generate_random_target_pose(randomness_scale)

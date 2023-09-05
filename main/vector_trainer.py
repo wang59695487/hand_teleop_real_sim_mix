@@ -5,8 +5,8 @@ import os
 import pickle
 import sys
 from datetime import datetime
-
-sys.path.append("/kaiming-fast-vol-1/workspace/hand_teleop")
+from functools import partial
+import time
 
 import imageio
 import numpy as np
@@ -21,8 +21,6 @@ from typing import Optional
 
 from main.eval import apply_IK_get_real_action
 from model import Agent
-import time
-from functools import partial
 from hand_teleop.player.vec_player import VecPlayer
 from hand_teleop.render.render_player import RenderPlayer
 
@@ -69,14 +67,14 @@ class VecTrainer:
         demo_paths = sorted(glob.glob(os.path.join(args.demo_folder,
                                                    "*.pickle")))
         demos = []
-        for path in demo_paths:
+        for path in demo_paths[:50]:
             with open(path, "rb") as f:
                 cur_demo = pickle.load(f)
-                cur_demo["data"] = [{k: cur_demo["data"][k][i] for k in cur_demo["data"].keys()}
-                                    for i in range(len(cur_demo["data"]["simulation"]))]
-                # TODO: fake data, fix it later
-                for i in range(len(cur_demo["data"])):
-                    cur_demo["data"][i]["action"] = np.random.random(size=(22,)).astype(np.float32)
+                # cur_demo["data"] = [{k: cur_demo["data"][k][i] for k in cur_demo["data"].keys()}
+                #                     for i in range(len(cur_demo["data"]["simulation"]))]
+                # # TODO: fake data, fix it later
+                # for i in range(len(cur_demo["data"])):
+                #     cur_demo["data"][i]["action"] = np.random.random(size=(22,)).astype(np.float32)
                 demos.append(cur_demo)
         train_idx, val_idx = train_test_split(list(range(len(demos))),
                                               test_size=args.val_pct, random_state=args.seed)
@@ -205,13 +203,13 @@ class VecTrainer:
                     actions.append(self.demos_train[i + k]["data"][indices[k]]["action"])
 
                 robot_qpos = torch.from_numpy(np.stack(robot_qpos, axis=0)).to(self.args.device)
-                actions = torch.from_numpy(np.stack(actions, axis=0)).to(self.args.device)
+                actions = torch.from_numpy(np.stack(actions[self.args.window_size - 1:], axis=0)).to(self.args.device)
 
                 # TODO: sim only here, fix it later
-                # actions_pred = self.model(images, robot_qpos, "sim")
-                # loss = self.criterion(actions_pred, actions)
-                # loss.backward()
-                # loss_train += loss.cpu().item()
+                actions_pred = self.model(images, robot_qpos, "sim")
+                loss = self.criterion(actions_pred, actions)
+                loss.backward()
+                loss_train += loss.cpu().item()
 
             # gradient accumulation check
             if (i + 1) % self.args.grad_acc == 0:
@@ -269,12 +267,12 @@ class VecTrainer:
 
         for i in range(self.epoch_start, self.args.epochs):
             loss_train = self._train_epoch()
-            loss_val = self._eval_epoch()
-            metrics = {
-                "loss/train": loss_train,
-                "loss/val": loss_val,
-                "epoch": i,
-            }
+            # loss_val = self._eval_epoch()
+            # metrics = {
+            #     "loss/train": loss_train,
+            #     "loss/val": loss_val,
+            #     "epoch": i,
+            # }
 
             self.save_checkpoint("latest")
 

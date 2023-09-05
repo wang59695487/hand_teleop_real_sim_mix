@@ -96,23 +96,6 @@ def main():
     else:
         trainer = Trainer(args)
 
-    # player = trainer.init_player(trainer.demos_train[0])
-
-    # video = []
-    # from tqdm import tqdm
-    # for i in tqdm(range(len(trainer.demos_train[0]["data"]))):
-    #     image = trainer.render_single_frame(player, i)
-    #     video.append(image.cpu().numpy())
-
-    # video = (np.stack(video) * 255).astype(np.uint8)
-    # import imageio
-    # imageio.mimsave("raw.mp4", video, fps=120)
-
-    # player = trainer.init_player(trainer.demos_train[20])
-    # actions = trainer.replay_demo(player)
-    # player = trainer.init_player(trainer.demos_train[20])
-    # trainer.validate_actions(player, actions, "test.mp4")
-
     if args.ckpt is not None:
         trainer.load_checkpoint(args.ckpt)
 
@@ -121,7 +104,7 @@ def main():
         trainer.load_checkpoint(f"{trainer.log_dir}/model_best.pth", False)
 
     avg_success = trainer.eval_in_env(trainer.args, "best",
-                                      trainer.args.final_x_steps, trainer.args.final_y_steps)
+        trainer.args.final_x_steps, trainer.args.final_y_steps)
     print(f"Average success rate: {avg_success:.4f}")
     wandb.log({"final_success": avg_success})
 

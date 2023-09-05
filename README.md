@@ -1,5 +1,4 @@
 # TODO
-- Augment in simulation action spaces. hand_teleop/player/player.py L523.
 
 # Usage
 ## Demo replay

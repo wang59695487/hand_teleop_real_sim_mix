@@ -5,7 +5,6 @@ import pickle
 import sys
 from copy import deepcopy
 from datetime import datetime
-sys.path.append("/kaiming-fast-vol-1/workspace/hand_teleop")
 
 import imageio
 import numpy as np
@@ -22,6 +21,7 @@ from torchvision.models.feature_extraction import create_feature_extractor
 from tqdm import tqdm
 from transforms3d.quaternions import quat2axangle
 
+from data import HandTeleopDataset
 from hand_teleop.env.rl_env.pick_place_env import PickPlaceRLEnv
 from hand_teleop.env.rl_env.dclaw_env import DClawRLEnv
 from hand_teleop.player.player import DcLawEnvPlayer, PickPlaceEnvPlayer
@@ -37,7 +37,7 @@ class Trainer:
 
         self.epoch_start = 0
 
-        self.demos_train, self.demos_val = self.load_data(args)
+        self.load_data(args)
 
         self.model = Agent(args).to(args.device)
 
@@ -68,22 +68,25 @@ class Trainer:
     def load_data(self, args):
         demo_paths = sorted(glob.glob(os.path.join(args.demo_folder,
             "*.pickle")))
-        demos = []
-        for path in demo_paths:
-            with open(path, "rb") as f:
-                cur_demo = pickle.load(f)
-                cur_demo["data"] = [{k: cur_demo["data"][k][i] for k in cur_demo["data"].keys()}
-                    for i in range(len(cur_demo["data"]["simulation"]))]
-                # TODO: fake data, fix it later
-                for i in range(len(cur_demo["data"])):
-                    cur_demo["data"][i]["action"] = np.random.random(size=(22, )).astype(np.float32)
-                demos.append(cur_demo)
-        train_idx, val_idx = train_test_split(list(range(len(demos))),
+        train_idx, val_idx = train_test_split(list(range(len(demo_paths))),
             test_size=args.val_pct, random_state=args.seed)
-        demos_train = [demos[i] for i in train_idx]
-        demos_val = [demos[i] for i in val_idx]
+        demo_paths_train = [demo_paths[i] for i in train_idx]
+        demo_paths_val = [demo_paths[i] for i in val_idx]
 
-        return demos_train, demos_val
+        with open(demo_paths_train[0], "rb") as f:
+            sample_demo = pickle.load(f)
+        self.player = self.init_player(sample_demo)
+        self.meta_data = sample_demo["meta_data"]
+        arm_dof = self.player.env.robot.dof
+        self.init_robot_qpos = sample_demo["data"][0]["robot_qpos"]\
+            [:arm_dof]
+
+        ds_train = HandTeleopDataset(demo_paths_train)
+        ds_val = HandTeleopDataset(demo_paths_val)
+        self.dl_train = HandTeleopDataset.get_dataloader(ds_train,
+            self.args.demo_batch_size, True, self.args.n_workers)
+        self.dl_val = HandTeleopDataset.get_dataloader(ds_val,
+            self.args.demo_batch_size, False, self.args.n_workers)
 
     def init_player(self, demo):
         meta_data = deepcopy(demo["meta_data"])
@@ -164,6 +167,10 @@ class Trainer:
 
         return player
 
+    def load_demo(self, demo):
+        self.player.data = demo["data"]
+        self.player.meta_data = demo["meta_data"]
+
     def replay_demo(self, player):
         demo_len = len(player.data)
         robot_pose = player.env.robot.get_pose()
@@ -201,11 +208,13 @@ class Trainer:
 
         return actions
 
-    def render_single_frame(self, player, idx):
-        player.scene.unpack(player.get_sim_data(idx))
-        image = player.env.get_observation()["relocate_view-rgb"]
+    def render_single_frame(self, idx):
+        self.player.scene.unpack(self.player.get_sim_data(idx))
+        image = self.player.env.get_observation()["relocate_view-rgb"].detach().clone()
+        ee_pose = self.player.env.ee_link.get_pose()
+        ee_pose = np.concatenate([ee_pose.p, ee_pose.q])
 
-        return image
+        return image, ee_pose
 
     def validate_actions(self, player, actions, video_path):
         player.scene.unpack(player.get_sim_data(0))
@@ -252,87 +261,328 @@ class Trainer:
 
     def _train_epoch(self):
         loss_train = 0
+        batch_cnt = 0
         if self.args.finetune_backbone:
             self.model.policy_net.train()
         else:
             self.model.train()
 
-        for i in tqdm(range(len(self.demos_train))):
-            demo_len = len(self.demos_train[i]["data"])
-            player = self.init_player(self.demos_train[i])
+        for _, demos in enumerate(tqdm(self.dl_train)):
+            for i in tqdm(range(len(demos))):
+                demo_len = len(demos[i]["data"])
+                self.load_demo(demos[i])
 
-            beg = 0
-            while beg < demo_len:
-                end = min(beg + self.args.batch_size, demo_len)
-                images = torch.stack([self.render_single_frame(player, t)
-                    for t in range(beg, end)]).permute((0, 3, 1, 2))
-                robot_qpos = torch.from_numpy(np.stack([
-                    self.demos_train[i]["data"][t]["robot_qpos"]
-                    for t in range(beg, end)])).to(self.args.device)
-                actions = torch.from_numpy(np.stack([
-                    self.demos_train[i]["data"][t]["action"]
-                    for t in range(beg + self.args.window_size - 1, end)]))\
-                    .to(self.args.device)
+                beg = 0
+                while beg < demo_len:
+                    beg = min(beg, demo_len - self.args.window_size - 1)
+                    end = min(beg + self.args.step_batch_size, demo_len)
+                    rendered_data = [self.render_single_frame(t)
+                        for t in range(beg, end)]
+                    images = torch.stack([x[0] for x in rendered_data])\
+                        .permute((0, 3, 1, 2))
+                    # ee_poses = torch.from_numpy(np.stack([x[1]
+                    #     for x in rendered_data]))
+                    robot_qpos = torch.from_numpy(np.stack([
+                        demos[i]["data"][t]["robot_qpos"]
+                        for t in range(beg, end)])).to(self.args.device)
+                    # robot_qpos = torch.cat([robot_qpos, ee_poses], dim=-1)\
+                    #     .to(self.args.device)
+                    actions = torch.from_numpy(np.stack([
+                        demos[i]["data"][t]["action"]
+                        for t in range(beg + self.args.window_size - 1, end)]))\
+                        .to(self.args.device)
 
-                # TODO: sim only here, fix it later
-                actions_pred = self.model(images, robot_qpos, "sim")
-                loss = self.criterion(actions_pred, actions)
-                loss.backward()
-                loss_train += loss.cpu().item()
+                    # TODO: sim only here, fix it later
+                    actions_pred = self.model(images, robot_qpos, "sim")
+                    loss = self.criterion(actions_pred, actions)
+                    loss.backward()
+                    loss_train += loss.detach().cpu().item()
+                    batch_cnt += 1
 
-                beg = end
+                    beg = end
 
-            # gradient accumulation check
-            if (i + 1) % self.args.grad_acc == 0:
-                self.optimizer.step()
-                self.optimizer.zero_grad()
+                # gradient accumulation check
+                if (i + 1) % self.args.grad_acc == 0:
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
 
-            if i >= 5 and self.args.debug:
+            if _ >= 5 and self.args.debug:
                 break
 
-        loss_train /= len(self.demos_train)
+            if not self.args.wandb_off:
+                wandb.log({
+                    "running_loss": loss.detach().cpu().item(),
+                    "total_steps": self.cur_epoch * len(self.dl_train) + _
+                })
+
+        loss_train /= batch_cnt
 
         return loss_train
 
     @torch.no_grad()
     def _eval_epoch(self):
         loss_val = 0
+        batch_cnt = 0
         self.model.eval()
 
-        for i in tqdm(range(len(self.demos_val))):
-            demo_len = len(self.demos_val[i]["data"])
-            player = self.init_player(self.demos_val[i])
-            images = []
-            beg = 0
-            while beg < demo_len:
-                end = min(beg + self.args.batch_size, demo_len)
-                images = torch.stack([self.render_single_frame(player, t)
-                    for t in range(beg, end)]).permute((0, 3, 1, 2))
-                robot_qpos = torch.from_numpy(np.stack([
-                    self.demos_val[i]["data"][t]["robot_qpos"]
-                    for t in range(beg, end)])).to(self.args.device)
-                actions = torch.from_numpy(np.stack([
-                    self.demos_val[i]["data"][t]["action"]
-                    for t in range(beg + self.args.window_size - 1, end)]))\
-                    .to(self.args.device)
+        for _, demos in enumerate(tqdm(self.dl_val)):
+            for i in range(len(demos)):
+                demo_len = len(demos[i]["data"])
+                self.load_demo(demos[i])
 
-                # TODO: sim only here, fix it later
-                actions_pred = self.model(images, robot_qpos, "sim")
-                loss = self.criterion(actions_pred, actions)
-                loss_val += loss.cpu().item()
+                beg = 0
+                while beg < demo_len:
+                    beg = min(beg, demo_len - self.args.window_size - 1)
+                    end = min(beg + self.args.step_batch_size, demo_len)
+                    rendered_data = [self.render_single_frame(t)
+                        for t in range(beg, end)]
+                    images = torch.stack([x[0] for x in rendered_data])\
+                        .permute((0, 3, 1, 2))
+                    ee_poses = torch.from_numpy(np.stack([x[1]
+                        for x in rendered_data]))
+                    robot_qpos = torch.from_numpy(np.stack([
+                        demos[i]["data"][t]["robot_qpos"]
+                        for t in range(beg, end)])).to(self.args.device)
+                    # robot_qpos = torch.cat([robot_qpos, ee_poses], dim=-1)\
+                    #     .to(self.args.device)
+                    actions = torch.from_numpy(np.stack([
+                        demos[i]["data"][t]["action"]
+                        for t in range(beg + self.args.window_size - 1, end)]))\
+                        .to(self.args.device)
 
-                beg = end
+                    # TODO: sim only here, fix it later
+                    actions_pred = self.model(images, robot_qpos, "sim")
+                    loss = self.criterion(actions_pred, actions)
+                    loss_val += loss.detach().cpu().item()
+                    batch_cnt += 1
 
-            if i >= 5 and self.args.debug:
+                    beg = end
+
+            if _ >= 5 and self.args.debug:
                 break
 
-        loss_val /= len(self.demos_val)
+        loss_val /= batch_cnt
+
         return loss_val
+
+    @torch.no_grad()
+    def eval_in_env(self, epoch, x_steps, y_steps):
+        self.model.eval()
+        
+        meta_data = deepcopy(self.meta_data)
+        robot_name = self.args.robot
+        # task_name = meta_data['task_name']
+        task_name = meta_data["env_kwargs"]["task_name"]
+        if 'randomness_scale' in meta_data["env_kwargs"].keys():
+            randomness_scale = meta_data["env_kwargs"]['randomness_scale']
+        else:
+            randomness_scale = 1
+        rotation_reward_weight = 0
+        if 'allegro' in robot_name:
+            if 'finger_control_params' in meta_data.keys():
+                finger_control_params = meta_data['finger_control_params']
+            if 'root_rotation_control_params' in meta_data.keys():
+                root_rotation_control_params = meta_data['root_rotation_control_params']
+            if 'root_translation_control_params' in meta_data.keys():
+                root_translation_control_params = meta_data['root_translation_control_params']
+            if 'robot_arm_control_params' in meta_data.keys():
+                robot_arm_control_params = meta_data['robot_arm_control_params']            
+
+        env_params = meta_data["env_kwargs"]
+        if "task_name" in env_params:
+            del env_params["task_name"]
+        env_params['robot_name'] = robot_name
+        env_params['use_visual_obs'] = True
+        env_params['use_gui'] = False
+
+        # Specify rendering device if the computing device is given
+        if "CUDA_VISIBLE_DEVICES" in os.environ:
+            env_params["device"] = "cuda"
+
+        if robot_name == "mano":
+            env_params["zero_joint_pos"] = meta_data["zero_joint_pos"]
+
+        if 'init_obj_pos' in meta_data["env_kwargs"].keys():
+            env_params['init_obj_pos'] = meta_data["env_kwargs"]['init_obj_pos']
+            object_pos = meta_data["env_kwargs"]['init_obj_pos']
+
+        if 'init_target_pos' in meta_data["env_kwargs"].keys():
+            env_params['init_target_pos'] = meta_data["env_kwargs"]['init_target_pos']
+            target_pos = meta_data["env_kwargs"]['init_target_pos']
+
+        if task_name == 'pick_place':
+            env = PickPlaceRLEnv(**env_params)
+        elif task_name == 'dclaw':
+            env = DClawRLEnv(**env_params)
+        else:
+            raise NotImplementedError
+        env.seed(0)
+        env.reset()
+
+        if "free" in robot_name:
+            for joint in env.robot.get_active_joints():
+                name = joint.get_name()
+                if "x_joint" in name or "y_joint" in name or "z_joint" in name:
+                    joint.set_drive_property(*(1 * root_translation_control_params), mode="acceleration")
+                elif "x_rotation_joint" in name or "y_rotation_joint" in name or "z_rotation_joint" in name:
+                    joint.set_drive_property(*(1 * root_rotation_control_params), mode="acceleration")
+                else:
+                    joint.set_drive_property(*(finger_control_params), mode="acceleration")
+            env.rl_step = env.simple_sim_step
+        elif "xarm" in robot_name:
+            arm_joint_names = [f"joint{i}" for i in range(1, 8)]
+            for joint in env.robot.get_active_joints():
+                name = joint.get_name()
+                if name in arm_joint_names:
+                    joint.set_drive_property(*(1 * robot_arm_control_params), mode="force")
+                else:
+                    joint.set_drive_property(*(1 * finger_control_params), mode="force")
+            env.rl_step = env.simple_sim_step
+
+        real_camera_cfg = {
+            "relocate_view": dict( pose=lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(224, 224))
+        }
+        
+        if task_name == 'table_door':
+            camera_cfg = {
+            "relocate_view": dict(position=np.array([-0.25, -0.25, 0.55]), look_at_dir=np.array([0.25, 0.25, -0.45]),
+                                    right_dir=np.array([1, -1, 0]), fov=np.deg2rad(69.4), resolution=(224, 224))
+            }           
+        env.setup_camera_from_config(real_camera_cfg)
+
+        # Specify modality
+        empty_info = {}  # level empty dict for now, reserved for future
+        camera_info = {"relocate_view": {"rgb": empty_info, "segmentation": empty_info}}
+        env.setup_visual_obs_config(camera_info)
+
+        env.robot.set_qpos(self.init_robot_qpos)
+
+        eval_idx = 0
+        progress = tqdm(total=x_steps * y_steps)
+        metrics = {"avg_success": 0}
+        if self.args.task == "dclaw":
+            metrics["avg_angle"] = 0
+
+        for x in np.linspace(-0.08, 0.08, x_steps):        # -0.08 0.08 /// -0.05 0
+            for y in np.linspace(0.22, 0.28, y_steps):  # 0.12 0.18 /// 0.12 0.32
+                video = []
+                max_angle = 0
+                success = False
+                object_p = np.array([x, y, env.manipulated_object.get_pose().p[-1]])
+                object_pos = sapien.Pose(p=object_p, q=env.manipulated_object.get_pose().q)
+                env.reset()
+                if "free" in robot_name:
+                    for joint in env.robot.get_active_joints():
+                        name = joint.get_name()
+                        if "x_joint" in name or "y_joint" in name or "z_joint" in name:
+                            joint.set_drive_property(*(1 * root_translation_control_params), mode="acceleration")
+                        elif "x_rotation_joint" in name or "y_rotation_joint" in name or "z_rotation_joint" in name:
+                            joint.set_drive_property(*(1 * root_rotation_control_params), mode="acceleration")
+                        else:
+                            joint.set_drive_property(*(finger_control_params), mode="acceleration")
+                    env.rl_step = env.simple_sim_step
+                elif "xarm" in robot_name:
+                    arm_joint_names = [f"joint{i}" for i in range(1, 8)]
+                    for joint in env.robot.get_active_joints():
+                        name = joint.get_name()
+                        if name in arm_joint_names:
+                            joint.set_drive_property(*(1 * robot_arm_control_params), mode="force")
+                        else:
+                            joint.set_drive_property(*(1 * finger_control_params), mode="force")
+                    env.rl_step = env.simple_sim_step                
+                env.robot.set_qpos(self.init_robot_qpos)
+                if self.args.task == "pick_place":
+                    env.manipulated_object.set_pose(object_pos)
+                for _ in range(10*env.frame_skip):
+                    env.scene.step()
+
+                obs = env.get_observation()
+
+                for i in range(self.args.max_eval_steps):
+                    video.append(obs["relocate_view-rgb"].cpu().numpy())
+                    robot_qpos = env.robot.get_qpos().astype(np.float32)
+                    ee_pose = env.ee_link.get_pose()
+                    ee_pose = np.concatenate([ee_pose.p, ee_pose.q]).astype(np.float32)
+                    robot_qpos = np.concatenate([robot_qpos, ee_pose])
+
+                    if i == 0:
+                        image_tensor = obs["relocate_view-rgb"].permute((2, 0, 1))\
+                            [None].repeat(self.args.window_size, 1, 1, 1)
+                        robot_qpos_tensor = torch.from_numpy(robot_qpos)\
+                            [None].repeat(self.args.window_size, 1).to(self.args.device)
+                    elif i == 1:
+                        image_tensor[1:, ...] = obs["relocate_view-rgb"].permute((2, 0, 1))
+                        robot_qpos_tensor[1:, :] = torch.from_numpy(robot_qpos)\
+                            .to(self.args.device)
+                    elif i == 2:
+                        image_tensor[2:, ...] = obs["relocate_view-rgb"].permute((2, 0, 1))
+                        robot_qpos_tensor[2:, :] = torch.from_numpy(robot_qpos)\
+                            .to(self.args.device)
+                    elif i == 3:
+                        image_tensor[3:, ...] = obs["relocate_view-rgb"].permute((2, 0, 1))
+                        robot_qpos_tensor[3:, :] = torch.from_numpy(robot_qpos)\
+                            .to(self.args.device)
+                    else:
+                        image_tensor[1:] = image_tensor[:-1].clone()
+                        robot_qpos_tensor[1:] = robot_qpos_tensor[:-1].clone()
+                        image_tensor[0] = obs["relocate_view-rgb"].permute((2, 0, 1))
+                        robot_qpos_tensor[0] = torch.from_numpy(robot_qpos)\
+                            .to(self.args.device)
+
+                    # TODO: sim only, fix later
+                    action = self.model.get_action(image_tensor, robot_qpos_tensor, "sim")
+
+                    real_action = apply_IK_get_real_action(action, env,
+                        env.robot.get_qpos(), use_visual_obs=True)
+
+                    next_obs, _, _, info = env.step(real_action)
+                    if self.args.task == "pick_place":
+                        if epoch != "best":
+                            info_success = info["is_object_lifted"] and info["success"]
+                        else:
+                            info_success = info["success"]
+                    elif self.args.task == "dclaw":
+                        info_success = info["success"]
+                        max_angle = max(max_angle, info["object_total_rotate_angle"])
+
+                    success = success or info_success
+                    if success:
+                        break
+
+                    obs = next_obs
+
+                metrics["avg_success"] += int(success)
+                video = (np.stack(video) * 255).astype(np.uint8)
+                #If it did not lift the object, consider it as 0.25 success
+                if task_name == "pick_place":
+                    if epoch != "best" and info["success"]:
+                        metrics["avg_success"] += 0.25
+
+                    is_lifted = info["is_object_lifted"]
+                    video_path = os.path.join(self.log_dir,
+                        f"epoch_{epoch}_{eval_idx}_{success}_{is_lifted}.mp4")
+
+                elif task_name == "dclaw":
+                    video_path = os.path.join(self.log_dir,
+                        f"epoch_{epoch}_{eval_idx}_{success}_{max_angle}.mp4")
+                    metrics["avg_angle"] += max_angle
+                imageio.mimsave(video_path, video, fps=120)
+                eval_idx += 1
+                progress.update()
+
+        metrics["avg_success"] /= eval_idx
+        if task_name == "dclaw":
+            metrics["avg_angle"] /= eval_idx
+        progress.close()
+
+        return metrics
 
     def train(self):
         best_success = 0
+        best_angle = 0
 
         for i in range(self.epoch_start, self.args.epochs):
+            self.cur_epoch = i
             loss_train = self._train_epoch()
             loss_val = self._eval_epoch()
             metrics = {
@@ -343,18 +593,21 @@ class Trainer:
 
             self.save_checkpoint("latest")
 
-            # if (i + 1) % self.args.eval_freq == 0\
-            #         and (i + 1) >= self.args.eval_beg:
-            #     self.save_checkpoint(i + 1)
-            #     avg_success = self.eval_in_env(self.args, i + 1,
-            #         self.args.eval_x_steps, self.args.eval_y_steps)
-            #     metrics.update({
-            #         "avg_success": avg_success,
-            #     })
+            if (i + 1) % self.args.eval_freq == 0\
+                    and (i + 1) >= self.args.eval_beg:
+                self.save_checkpoint(i + 1)
+                env_metrics = self.eval_in_env(i + 1,
+                    self.args.eval_x_steps, self.args.eval_y_steps)
+                metrics.update(env_metrics)
 
-            #     if avg_success > best_success:
-            #         self.save_checkpoint("best")
-            #         best_success = avg_success
+                if self.args.task == "pick_place":
+                    if metrics["avg_success"] > best_success:
+                        self.save_checkpoint("best")
+                        best_success = metrics["avg_success"]
+                else:
+                    if metrics["avg_angle"] > best_angle:
+                        self.save_checkpoint("best")
+                        best_angle = metrics["avg_angle"]
 
-            # if not self.args.wandb_off:
-            #     wandb.log(metrics)
+            if not self.args.wandb_off:
+                wandb.log(metrics)
