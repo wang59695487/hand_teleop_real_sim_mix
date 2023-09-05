@@ -169,11 +169,9 @@ def generate_sim_aug(args, all_data, init_pose_aug, retarget=False, frame_skip=1
     # if player.human_robot_hand is not None:
     #     player.scene.remove_articulation(player.human_robot_hand.robot)
 
-    env.robot.set_qpos(baked_data["robot_qpos"][0])
-    if baked_data["robot_qvel"] != []:
-        env.robot.set_qvel(baked_data["robot_qvel"][0])
-
-    robot_pose = env.robot.get_pose()
+    env.reset()
+    init_qpos = [0, -np.pi / 4, 0, 0, np.pi / 4, -np.pi / 2] + [0] * 16
+    env.robot.set_qpos(init_qpos)
 
     ### Aug obj pose ###
     env.manipulated_object.set_pose(meta_data["env_kwargs"]['init_obj_pos'])
@@ -191,7 +189,6 @@ def generate_sim_aug(args, all_data, init_pose_aug, retarget=False, frame_skip=1
     stop_frame = 0
 
     for idx in tqdm(range(0,len(baked_data["obs"]),frame_skip)):
-        action = baked_data["action"][idx]
         ee_pose = baked_data["ee_pose"][idx]
         # NOTE: robot.get_qpos() version
         if idx < len(baked_data['obs'])-frame_skip:
@@ -422,10 +419,6 @@ def generate_sim_aug_in_play_demo(args, demo, init_pose_aug):
     if player.human_robot_hand is not None:
         player.scene.remove_articulation(player.human_robot_hand.robot)
 
-    env.robot.set_qpos(baked_data["robot_qpos"][0])
-    if baked_data["robot_qvel"] != []:
-        env.robot.set_qvel(baked_data["robot_qvel"][0])
-
     robot_pose = env.robot.get_pose()
 
     ### Aug obj pose ###
@@ -442,6 +435,10 @@ def generate_sim_aug_in_play_demo(args, demo, init_pose_aug):
     stop_frame = 0
     grasp_frame = 0
     visual_baked = dict(obs=[], action=[],robot_qpos=[])
+    env.reset()
+    init_qpos = [0, -np.pi / 4, 0, 0, np.pi / 4, -np.pi / 2] + [0] * 16
+    env.robot.set_qpos(init_qpos)
+    
     for idx in tqdm(range(0,len(baked_data["obs"]),frame_skip)):
         action = baked_data["action"][idx]
         ee_pose = baked_data["ee_pose"][idx]
@@ -508,7 +505,7 @@ def generate_sim_aug_in_play_demo(args, demo, init_pose_aug):
 
                     if np.mean(handqpos2angle(delta_hand_qpos)) > 1 and dist_object_hand_prev < 0.15:
                         ###########################Grasping augmentation############################
-                        for _ in range(15):
+                        for _ in range(10):
                             visual_baked["obs"].append(observation)
                             visual_baked["action"].append(np.concatenate([delta_pose*100, hand_qpos]))
                             # Using robot qpos version
@@ -525,7 +522,7 @@ def generate_sim_aug_in_play_demo(args, demo, init_pose_aug):
                 if stop_frame == 16:
                     break
 
-    if grasp_frame/len(visual_baked['obs']) < 0.1:
+    if grasp_frame/len(visual_baked['obs']) < 0.08:
         info_success = False
     print("grasp_frame: ", grasp_frame)
     print("total_frame: ", len(visual_baked['obs']))
