@@ -468,7 +468,7 @@ def train_real_sim(args):
                 
                 loss_train_real_chunk.append(loss_train_real)
                 loss_train_sim_chunk.append(loss_train_sim)
-                if epoch == 1:
+                if epoch == 0:
                     best_loss_train_real = min(loss_train_real_chunk)
                     best_loss_train_sim = min(loss_train_sim_chunk)
 
@@ -479,12 +479,12 @@ def train_real_sim(args):
                     if np.fabs(min(loss_train_sim_chunk) - best_loss_train_sim) < sim_lr * 5:
                         sim_lr = sim_lr/10
                         print('Sim lr reduced to {}'.format(sim_lr))
-                    loss_train_real_chunk = []
                     if min(loss_train_real_chunk) < best_loss_train_real:
                         best_loss_train_real = min(loss_train_real_chunk)
-                    loss_train_sim_chunk = []
                     if min(loss_train_sim_chunk) < best_loss_train_sim:
                         best_loss_train_sim = min(loss_train_sim_chunk)
+                    loss_train_real_chunk = []
+                    loss_train_sim_chunk = []
 
                 metrics = {
                     "loss/train_real": loss_train_real,
