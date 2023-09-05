@@ -419,6 +419,9 @@ def generate_sim_aug_in_play_demo(args, demo, init_pose_aug):
     if player.human_robot_hand is not None:
         player.scene.remove_articulation(player.human_robot_hand.robot)
 
+    env.robot.set_qpos(baked_data["robot_qpos"][0])
+    if baked_data["robot_qvel"] != []:
+            env.robot.set_qvel(baked_data["robot_qvel"][0])
     robot_pose = env.robot.get_pose()
 
     ### Aug obj pose ###
@@ -435,9 +438,9 @@ def generate_sim_aug_in_play_demo(args, demo, init_pose_aug):
     stop_frame = 0
     grasp_frame = 0
     visual_baked = dict(obs=[], action=[],robot_qpos=[])
-    env.reset()
-    init_qpos = [0, -np.pi / 4, 0, 0, np.pi / 4, -np.pi / 2] + [0] * 16
-    env.robot.set_qpos(init_qpos)
+    # env.reset()
+    # init_qpos = [0, -np.pi / 4, 0, 0, np.pi / 4, -np.pi / 2] + [0] * 16
+    # env.robot.set_qpos(init_qpos)
     
     for idx in tqdm(range(0,len(baked_data["obs"]),frame_skip)):
         action = baked_data["action"][idx]
@@ -472,8 +475,8 @@ def generate_sim_aug_in_play_demo(args, demo, init_pose_aug):
                     if dist_object_hand_prev < args['detection_bound'] and not(is_hand_grasp) and delta_object_hand < args['delta_object_hand_bound']:
                         continue
 
-                    if env._object_target_distance() < 0.25 and object_pose[2] < 0.2:
-                        hand_qpos = hand_qpos*0.9
+                    # if env._object_target_distance() < 0.25 and object_pose[2] < 0.2:
+                    #     hand_qpos = hand_qpos*0.9
               
                 palm_pose = robot_pose.inv() * palm_pose
 

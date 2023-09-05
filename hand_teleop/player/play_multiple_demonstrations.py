@@ -179,6 +179,22 @@ def play_multiple_sim_real_visual(args):
     for file_name in os.listdir(args['sim_demo_folder']):
         if ".pickle" in file_name:
             demo_files.append(os.path.join(args['sim_demo_folder'], file_name))
+    
+    fail = 0
+    for demo_id, file_name in enumerate(demo_files):
+        print(file_name)
+        with open(file_name, 'rb') as file:
+            demo = pickle.load(file)
+            visual_baked, meta_data, info_success = play_one_real_sim_visual_demo(args, demo=demo)
+            if not info_success:
+                fail += 1
+                continue
+            init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
+            # visual_baked_demos.append(visual_baked)
+            visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)  
+    print('Fail sim demos:', fail)
+    print('---------------------')
+
     print('Replaying the sim demos and creating the dataset:')
     print('---------------------')
     if args['kinematic_aug'] > 0:
@@ -196,32 +212,21 @@ def play_multiple_sim_real_visual(args):
                     continue
                 with open(file_name, 'rb') as file:
                     demo = pickle.load(file)
-                    visual_baked, meta_data, info_success = generate_sim_aug_in_play_demo(args, demo=demo, init_pose_aug=init_pose_aug)
-                    if not info_success:
-                        continue
-                    aug += 1
-                    init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
-                    # visual_baked_demos.append(visual_baked)
-                    visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
+
+                all_data = copy.deepcopy(demo)
+                visual_baked, meta_data, info_success = generate_sim_aug_in_play_demo(args, demo=all_data, init_pose_aug=init_pose_aug)
+                if not info_success:
+                    continue
+                aug += 1
+                init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
+                # visual_baked_demos.append(visual_baked)
+                visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)
             
                 if aug > args['kinematic_aug']:
                     break
 
             if aug > args['kinematic_aug']:
                     break  
-
-    # fail = 0
-    # for demo_id, file_name in enumerate(demo_files):
-    #     print(file_name)
-    #     with open(file_name, 'rb') as file:
-    #         demo = pickle.load(file)
-    #         visual_baked, meta_data, info_success = play_one_real_sim_visual_demo(args, demo=demo)
-    #         if not info_success:
-    #             fail += 1
-    #             continue
-    #         init_obj_poses.append(meta_data['env_kwargs']['init_obj_pos'])
-    #         # visual_baked_demos.append(visual_baked)
-    #         visual_training_set = stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_folder, args, model=model, preprocess=preprocess)  
             
     sim_demo_length = len(visual_training_set['obs']) - real_demo_length
      # since here we are using real data, we set sim_real_label = 1
