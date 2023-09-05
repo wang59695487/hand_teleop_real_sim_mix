@@ -1,15 +1,12 @@
 import io
 import os
 import zipfile
-from pathlib import Path
 
 import numpy as np
 import numpy.random as random
-
 import requests
 import sapien.core as sapien
 from sapien.utils import Viewer
-
 from scipy.spatial.transform import Rotation as R
 
 _engine = None
@@ -102,8 +99,8 @@ def add_default_scene_light(scene: sapien.Scene, renderer: sapien.VulkanRenderer
     # scene.set_environment_map(str(ktx_path))
     scene.add_directional_light(np.array([-1, -1, -1]), np.array([0.5, 0.5, 0.5]), shadow=cast_shadow)
     scene.add_directional_light([0, 0, -1], [0.9, 0.8, 0.8], shadow=False)
-    scene.add_spot_light(np.array([0, 0, 1.5]), direction=np.array([0, 0, -1]), inner_fov=0.3, outer_fov=1.0,
-                         color=np.array([0.5, 0.5, 0.5]), shadow=False)
+    # scene.add_spot_light(np.array([0, 0, 1.5]), direction=np.array([0, 0, -1]), inner_fov=0.3, outer_fov=1.0,
+    #                      color=np.array([0.5, 0.5, 0.5]), shadow=False)
 
     visual_material = renderer.create_material()
     visual_material.set_base_color(np.array([0.5, 0.5, 0.5, 1]))

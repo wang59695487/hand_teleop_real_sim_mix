@@ -60,7 +60,7 @@ def parse_args():
     parser.add_argument("--wandb-off", action="store_true")
 
     # number of render workers
-    parser.add_argument("--workers", default=4, type=int)
+    parser.add_argument("--n-renderers", default=32, type=int)
 
     args = parser.parse_args()
 
@@ -91,7 +91,7 @@ def main():
         torch.autograd.set_detect_anomaly(True)
 
     set_rng_seed(args.seed)
-    if args.workers > 1:
+    if args.n_renderers > 1:
         trainer = VecTrainer(args)
     else:
         trainer = Trainer(args)

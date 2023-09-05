@@ -1,10 +1,9 @@
-import numpy as np
 import torch
+import numpy as np
 import glob
 import os
 import pickle
 import sys
-from copy import deepcopy
 from datetime import datetime
 
 sys.path.append("/kaiming-fast-vol-1/workspace/hand_teleop")
@@ -20,15 +19,12 @@ from tqdm import tqdm
 from transforms3d.quaternions import quat2axangle
 from typing import Optional
 
-from hand_teleop.env.rl_env.pick_place_env import PickPlaceRLEnv
-from hand_teleop.env.rl_env.dclaw_env import DClawRLEnv
-from hand_teleop.player.player import DcLawEnvPlayer, PickPlaceEnvPlayer
-from hand_teleop.real_world import lab
 from main.eval import apply_IK_get_real_action
 from model import Agent
 import time
 from functools import partial
 from hand_teleop.player.vec_player import VecPlayer
+from hand_teleop.render.render_player import RenderPlayer
 
 
 class VecTrainer:
@@ -66,7 +62,7 @@ class VecTrainer:
                 config=self.args
             )
 
-        self.num_render_workers = args.workers
+        self.num_render_workers = args.n_renderers
         self.vec_player: Optional[VecPlayer] = None
 
     def load_data(self, args):
@@ -88,87 +84,6 @@ class VecTrainer:
         demos_val = [demos[i] for i in val_idx]
 
         return demos_train, demos_val
-
-    def init_player(self, demo, **client_kwargs):
-        meta_data = deepcopy(demo["meta_data"])
-        # task_name = meta_data["env_kwargs"]["task_name"]
-        # meta_data["env_kwargs"].pop("task_name")
-        # meta_data["task_name"] = self.args.task
-        robot_name = self.args.robot
-        data = demo["data"]
-        use_visual_obs = True
-        if "finger_control_params" in meta_data.keys():
-            finger_control_params = meta_data["finger_control_params"]
-        if "root_rotation_control_params" in meta_data.keys():
-            root_rotation_control_params = meta_data["root_rotation_control_params"]
-        if "root_translation_control_params" in meta_data.keys():
-            root_translation_control_params = meta_data["root_translation_control_params"]
-        if "robot_arm_control_params" in meta_data.keys():
-            robot_arm_control_params = meta_data["robot_arm_control_params"]
-
-            # Create env
-        env_params = meta_data["env_kwargs"]
-        if "task_name" in env_params:
-            env_params.pop("task_name")
-        env_params["robot_name"] = robot_name
-        env_params["use_visual_obs"] = use_visual_obs
-        env_params["use_gui"] = False
-
-        # Specify rendering device if the computing device is given
-        if "CUDA_VISIBLE_DEVICES" in os.environ:
-            env_params["device"] = "cuda"
-
-        if robot_name == "mano":
-            env_params["zero_joint_pos"] = meta_data["zero_joint_pos"]
-        else:
-            env_params["zero_joint_pos"] = None
-
-        if "init_obj_pos" in meta_data["env_kwargs"].keys():
-            env_params["init_obj_pos"] = meta_data["env_kwargs"]["init_obj_pos"]
-
-        if "init_target_pos" in meta_data["env_kwargs"].keys():
-            env_params["init_target_pos"] = meta_data["env_kwargs"]["init_target_pos"]
-
-        env_params.update(dict(**client_kwargs))
-
-        if self.args.task == "pick_place":
-            env = PickPlaceRLEnv(**env_params)
-        elif self.args.task == "dclaw":
-            env = DClawRLEnv(**env_params)
-        else:
-            raise NotImplementedError
-
-        arm_joint_names = [f"joint{i}" for i in range(1, 8)]
-        for joint in env.robot.get_active_joints():
-            name = joint.get_name()
-            if name in arm_joint_names:
-                joint.set_drive_property(*(1 * robot_arm_control_params), mode="force")
-            else:
-                joint.set_drive_property(*(1 * finger_control_params), mode="force")
-        env.rl_step = env.simple_sim_step
-
-        env.reset()
-
-        real_camera_cfg = {
-            "relocate_view": dict(pose=lab.ROBOT2BASE * lab.CAM2ROBOT,
-                                  fov=lab.fov, resolution=(224, 224))
-        }
-        env.setup_camera_from_config(real_camera_cfg)
-
-        # Specify modality
-        empty_info = {}  # level empty dict for now, reserved for future
-        camera_info = {"relocate_view": {"rgb": empty_info}}
-        env.setup_visual_obs_config(camera_info)
-
-        # Player
-        if self.args.task == "pick_place":
-            player = PickPlaceEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-        elif self.args.task == "dclaw":
-            player = DcLawEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
-        else:
-            raise NotImplementedError
-
-        return player
 
     def replay_demo(self, player):
         demo_len = len(player.data)
@@ -257,25 +172,29 @@ class VecTrainer:
         else:
             self.model.train()
 
-        for i in tqdm(range(0, len(self.demos_train), self.num_render_workers)):
-            self.vec_player.load_player_data(self.demos_train[i:i + self.num_render_workers])
+        for i in tqdm(range(0, len(self.demos_train))):
+            self.vec_player.load_player_data([self.demos_train[i]] * self.num_render_workers)
+
+            data_len = self.vec_player.data_lengths[0]
+            assert self.args.batch_size % self.num_render_workers == 0
 
             beg = 0
-            for _ in range(1024):
+            while beg < data_len:
+                feature_tensor = torch.empty([self.args.batch_size, self.args.vis_dims // self.args.window_size])
                 tic = time.time()
-                # TODO: the code below does not consider multiple cameras in a single scene
-                image_dict, indices = self.vec_player.render_random_frames()
-                images = image_dict["Color"][:, 0].permute((0, 3, 1, 2))
+                for k in range(self.args.batch_size // self.num_render_workers):
+                    end = min(beg + self.num_render_workers, data_len)
+                    beg = end - self.num_render_workers
+                    indices = np.arange(beg, end, dtype=int)
+                    self.vec_player.set_sim_data_async(indices)
+                    self.vec_player.set_sim_data_wait()
+                    self.vec_player.render_async()
+                    image_dict = self.vec_player.render_wait()
+                    images = image_dict["Color"][:, 0, :, :, :3].permute((0, 3, 1, 2))
+                    # feature_tensor[beg:beg + self.num_render_workers, :] = self.model.get_image_feats(images)
+                    beg += self.num_render_workers
                 tac = time.time()
-                print(f"Render image with {images.shape} takes {tac - tic}s.")
-
-                import psutil
-                resultTable = []
-                for process in self.vec_player.processes:
-                    resultTable.append(psutil.Process(process.pid).memory_percent())
-                    time.sleep(1)
-                print(resultTable)
-                print('RAM Used (GB):', psutil.virtual_memory()[3]/1000000000)
+                print(f"Extract feature with {feature_tensor.shape} takes {tac - tic}s.")
 
                 # Fetch robot qpos and action
                 robot_qpos = []
@@ -344,7 +263,8 @@ class VecTrainer:
     def train(self):
         best_success = 0
 
-        player_create_fn = [partial(self.init_player, demo=self.demos_train[0]) for i in range(self.num_render_workers)]
+        player_create_fn = [partial(RenderPlayer.from_demo, demo=self.demos_train[0],
+                                    robot_name="xarm6_allegro_modified_finger") for i in range(self.num_render_workers)]
         self.vec_player = VecPlayer(player_create_fn)
 
         for i in range(self.epoch_start, self.args.epochs):

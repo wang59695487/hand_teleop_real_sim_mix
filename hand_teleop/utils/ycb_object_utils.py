@@ -47,7 +47,7 @@ YCB_SIZE = {
     "bowl": (0.1614, 0.1611, 0.0550),
     "mug": (0.1169, 0.0930, 0.0813),
     "large_clamp": (0.1659, 0.1216, 0.0364),
-    "plate" : (0.1169, 0.0930, 0.0813),
+    "plate": (0.1169, 0.0930, 0.0813),
 }
 
 YCB_ORIENTATION = {
@@ -70,7 +70,8 @@ YCB_OBJECT_NAMES = list(INVERSE_YCB_CLASSES.keys())
 YCB_ROOT = get_ycb_root_dir()
 
 
-def load_ycb_object(scene: sapien.Scene, object_name, scale=1, visual_only=False, material=None, static=False):
+def load_ycb_object(scene: sapien.Scene, object_name, scale=1, visual_only=False, material=None, static=False,
+                    render_only=False):
     ycb_id = INVERSE_YCB_CLASSES[object_name]
     ycb_name = YCB_CLASSES[ycb_id]
     visual_file = YCB_ROOT / "visual" / ycb_name / "textured_simple.obj"
@@ -79,10 +80,10 @@ def load_ycb_object(scene: sapien.Scene, object_name, scale=1, visual_only=False
     scales = np.array([scale] * 3)
     density = 1000
     if material is None:
-        #print("#############################Create material#######################")
-        #material = scene.engine.create_physical_material(1.5, 1, 0.1)
+        # print("#############################Create material#######################")
+        # material = scene.engine.create_physical_material(1.5, 1, 0.1)
         material = scene.engine.create_physical_material(1.5, 1, 0.1)
-    if not visual_only:
+    if not visual_only and not render_only:
         builder.add_multiple_collisions_from_file(str(collision_file), scale=scales, density=density, material=material)
     if visual_only:
         visual_file = YCB_ROOT / "visual" / ycb_name / "textured_simple.stl"

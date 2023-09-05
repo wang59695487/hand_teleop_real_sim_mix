@@ -7,9 +7,9 @@ from typing import Callable, List, Optional
 import numpy as np
 import sapien.core as sapien
 import torch
-from gym import spaces
+import tqdm
 
-from hand_teleop.player.player import DataPlayer
+from hand_teleop.render.render_player import RenderPlayer
 
 
 def find_available_port():
@@ -26,7 +26,7 @@ def find_available_port():
 def _worker(
         rank: int,
         remote: Connection,
-        player_fn: Callable[..., DataPlayer],
+        player_fn: Callable[..., RenderPlayer],
 ):
     player = None
     try:
@@ -36,17 +36,17 @@ def _worker(
             if cmd == "set_player_data":
                 player.meta_data = data["meta_data"]
                 player.data = data["data"]
-                player.action_filter.is_init = False
                 remote.send(len(data["data"]))
-            elif cmd == "render_single_frame":
-                player.scene.unpack(player.get_sim_data(data))
+            elif cmd == "set_sim_data":
+                player.set_sim_data(data)
+                remote.send(None)
+            elif cmd == "take_picture":
+                cameras = [x for x in player.cameras.values()]
+                player.scene._update_render_and_take_pictures(cameras)
                 remote.send(None)
             elif cmd == "close":
                 remote.close()
                 break
-            elif cmd == "get_obs_space":
-                obs_space = player.env.observation_space
-                remote.send(obs_space)
             elif cmd == "handshake":
                 remote.send(None)
             else:
@@ -59,7 +59,7 @@ def _worker(
         print(err)
     finally:
         if player is not None:
-            player.env.scene = None
+            player.scene = None
             player.scene = None
 
 
@@ -71,10 +71,11 @@ class VecPlayer:
 
     def __init__(
             self,
-            player_fns: List[Callable[[], DataPlayer]],
+            player_fns: List[Callable[[], RenderPlayer]],
             start_method: Optional[str] = None,
             server_address: str = "auto",
             server_kwargs: dict = None,
+            texture_names=("Color",),
             seed=None,
     ):
         self.waiting = False
@@ -85,27 +86,8 @@ class VecPlayer:
             start_method = "forkserver" if forkserver_available else "spawn"
         ctx = mp.get_context(start_method)
 
-        # Acquire observation space to construct buffer
-        remote, work_remote = ctx.Pipe()
-        args = (0, work_remote, player_fns[0])
-        process = ctx.Process(target=_worker, args=args, daemon=True)
-        process.start()
-        work_remote.close()
-        remote.send(("get_obs_space", None))
-        observation_space: spaces.Dict = remote.recv()
-        remote.send(("close", None))
-        remote.close()
-        process.join()
-
         n_players = len(player_fns)
         self.num_players = n_players
-
-        # Process observation space
-        state_keys = ["oracle_state", "state"]
-        self.image_obs_space = dict()
-        for key, value in observation_space.items():
-            if key not in state_keys:
-                self.image_obs_space[key] = value
 
         # Start RenderServer
         if server_address == "auto":
@@ -126,7 +108,7 @@ class VecPlayer:
         # Initialize workers
         self.remotes, self.work_remotes = zip(*[ctx.Pipe() for _ in range(n_players)])
         self.processes = []
-        for rank in range(n_players):
+        for rank in tqdm.trange(n_players):
             work_remote = self.work_remotes[rank]
             player_fn = player_fns[rank]
             args = (rank, work_remote, player_fn)
@@ -142,15 +124,7 @@ class VecPlayer:
             remote.recv()
 
         # Infer texture names
-        self.camera_names = []
-        self.texture_names = []
-        for obs_key in self.image_obs_space.keys():
-            camera_name, texture_alias = obs_key.split("-")
-            self.camera_names.append(camera_name)
-            if texture_alias == "rgb":
-                self.texture_names.append("Color")
-            else:
-                raise NotImplementedError
+        self.texture_names = texture_names
 
         # Allocate torch buffers
         # A list of [n_players, n_cams, H, W, C] tensors
@@ -162,22 +136,31 @@ class VecPlayer:
         self._seed = 0 if seed is None else seed
         self._random_state = np.random.RandomState(self._seed)
 
-    def render_async(self, idx_list: np.ndarray):
-        self.server.wait_all()
+    def set_sim_data_async(self, idx_list: np.ndarray):
+        for remote, idx in zip(self.remotes, idx_list):
+            remote.send(("set_sim_data", idx))
 
+    def set_sim_data_random_async(self):
+        indices = self._random_state.randint(0, self.data_lengths)
+        self.set_sim_data_async(indices)
+        return indices
+
+    def set_sim_data_wait(self):
+        results = [remote.recv() for remote in self.remotes]
+        return
+
+    def render_async(self):
+        for remote in self.remotes:
+            remote.send(("take_picture", None))
+
+    def render_wait(self):
+        results = [remote.recv() for remote in self.remotes]
+        self.server.wait_all()
         tensor_dict = {}
         for i, name in enumerate(self.texture_names):
             tensor_dict[name] = self._obs_torch_buffer[i]
 
-        for remote, idx in zip(self.remotes, idx_list):
-            remote.send(("render_single_frame", idx))
-        results = [remote.recv() for remote in self.remotes]
-
         return tensor_dict
-
-    def render_random_frames(self):
-        indices = self._random_state.randint(0, self.data_lengths)
-        return self.render_async(indices), indices
 
     def load_player_data(self, demos):
         if len(demos) != self.num_players:
