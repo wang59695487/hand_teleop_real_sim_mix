@@ -233,20 +233,26 @@ class BCSSAgent(object):
         # bc_loss.backward()
         # self.bc_module_optimizer.step()
 
-        return F.mse_loss(pred_action, action, reduction='sum')
+        return F.mse_loss(pred_action, action)
 
     
-    def update(self, bc_loss, L=None, step=None):
+    def update(self, bc_loss, L=None, step=None, alter_lr=None):
                
         if L is not None:
             L.log('train/bc_loss_total', bc_loss.item(), step)
         
+        if alter_lr is not None:
+            for p in self.bc_module_optimizer.param_groups:
+                p['lr'] = alter_lr
+        
         self.bc_module_optimizer.zero_grad()
         bc_loss.backward()
         self.bc_module_optimizer.step()
-        ############# scheduler ################
-        if step >= 100:
-            self.bc_module_scheduler.step()
+        
+
+        # ############# scheduler ################
+        # if step >= 100:
+        #     self.bc_module_scheduler.step()
 
         # if self.inv is not None and step % self.ss_update_freq == 0:
         #     next_obs = next_obs.to(device)

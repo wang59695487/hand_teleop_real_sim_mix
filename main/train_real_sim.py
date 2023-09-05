@@ -337,7 +337,7 @@ def compute_loss(agent, bc_train_dataloader, L, epoch):
 
     return loss
 
-def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_epoch_sim, bc_train_dataloader_real, bc_validation_dataloader_real, bc_train_dataloader_sim, bc_validation_dataloader_sim, L, epoch):
+def train_real_sim_in_one_epoch(agent,real_lr,sim_lr,sim_real_ratio, it_per_epoch_real,it_per_epoch_sim, bc_train_dataloader_real, bc_validation_dataloader_real, bc_train_dataloader_sim, bc_validation_dataloader_sim, L, epoch):
     
     loss_train_real = 0
     loss_train_sim = 0
@@ -349,18 +349,18 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
         #bc_loss = sim_real_ratio*loss_real + loss_sim
         #if sim batch_size == real batch size, we don't need bc_loss here
         #bc_loss = loss_real + loss_sim
-        agent.update(loss_sim, L, epoch)
+        agent.update(loss_sim, L, epoch, alter_lr=sim_lr)
         loss_train_sim += loss_sim.detach().cpu().item()
     
 
-    for _ in tqdm(range(it_per_epoch_sim)):
+    for _ in tqdm(range(it_per_epoch_real)):
         loss_real = compute_loss(agent,bc_train_dataloader_real,L,epoch)
         # loss_real_weight = loss_real.detach()
         # loss_real_weight = torch.reciprocal(loss_real_weight)
         #bc_loss = sim_real_ratio*loss_real + loss_sim
         #if sim batch_size == real batch size, we don't need bc_loss here
         #bc_loss = loss_real + loss_sim
-        agent.update(sim_real_ratio*loss_real, L, epoch)
+        agent.update(sim_real_ratio*loss_real, L, epoch, alter_lr=real_lr)
         loss_train_real += loss_real.detach().cpu().item()
     
     # for _ in tqdm(range(it_per_epoch_sim)):
@@ -377,7 +377,7 @@ def train_real_sim_in_one_epoch(agent, sim_real_ratio, it_per_epoch_real,it_per_
     loss_val_sim = evaluate(agent, bc_validation_dataloader_sim, L, epoch)
 
 
-    return loss_train_real/(len(bc_train_dataloader_real)*it_per_epoch_sim), loss_train_sim/len(bc_train_dataloader_sim), loss_val_real, loss_val_sim
+    return loss_train_real/len(bc_train_dataloader_real), loss_train_sim/len(bc_train_dataloader_sim), loss_val_real, loss_val_sim
 
 def train_in_one_epoch(agent, it_per_epoch, bc_train_dataloader, bc_validation_dataloader, L, epoch):
     
@@ -433,13 +433,13 @@ def train_real_sim(args):
                        frame_stack=args['frame_stack']
                        )
 
-    # Add lr_scheduler
-    if Prepared_Data['data_type'] == "real_sim":
-        T_0 = Prepared_Data['it_per_epoch_real']+Prepared_Data['it_per_epoch_sim']
-        agent.init_bc_scheduler(T_0=T_0,T_mult=2)
-    else:
-        T_0 = Prepared_Data['it_per_epoch']*5
-        agent.init_bc_scheduler(T_0=T_0,T_mult=2)
+    # # Add lr_scheduler
+    # if Prepared_Data['data_type'] == "real_sim":
+    #     T_0 = Prepared_Data['it_per_epoch_real']+Prepared_Data['it_per_epoch_sim']
+    #     agent.init_bc_scheduler(T_0=T_0,T_mult=2)
+    # else:
+    #     T_0 = Prepared_Data['it_per_epoch']*5
+    #     agent.init_bc_scheduler(T_0=T_0,T_mult=2)
 
     L = Logger("{}_{}".format(args['model_name'],args['num_epochs']))
 
@@ -453,14 +453,39 @@ def train_real_sim(args):
         )
         os.makedirs(log_dir, exist_ok=True)
         best_success = 0
+        real_lr = args['real_lr']
+        sim_lr = args['sim_lr']
+        loss_train_real_chunk = []
+        loss_train_sim_chunk = []
         for epoch in range(args['num_epochs']):
             print('  ','Epoch: ', epoch)
             if Prepared_Data['data_type'] == "real_sim":
 
-                loss_train_real,loss_train_sim, loss_val_real,loss_val_sim = train_real_sim_in_one_epoch(agent, sim_real_ratio,
+                loss_train_real,loss_train_sim, loss_val_real,loss_val_sim = train_real_sim_in_one_epoch(agent,real_lr,sim_lr,sim_real_ratio,
                                                 Prepared_Data['it_per_epoch_real'],Prepared_Data['it_per_epoch_sim'],
                                                 Prepared_Data['bc_train_dataloader_real'], Prepared_Data['bc_validation_dataloader_real'], 
                                                 Prepared_Data['bc_train_dataloader_sim'], Prepared_Data['bc_validation_dataloader_sim'], L, epoch)
+                
+                loss_train_real_chunk.append(loss_train_real)
+                loss_train_sim_chunk.append(loss_train_sim)
+                if epoch == 1:
+                    best_loss_train_real = min(loss_train_real_chunk)
+                    best_loss_train_sim = min(loss_train_sim_chunk)
+
+                if (epoch + 1) % args["lr_update_freq"] == 0:
+                    if np.fabs(min(loss_train_real_chunk)- best_loss_train_real) < real_lr * 5:
+                        real_lr = real_lr/10
+                        print('Real lr reduced to {}'.format(real_lr))
+                    if np.fabs(min(loss_train_sim_chunk) - best_loss_train_sim) < sim_lr * 5:
+                        sim_lr = sim_lr/10
+                        print('Sim lr reduced to {}'.format(sim_lr))
+                    loss_train_real_chunk = []
+                    if min(loss_train_real_chunk) < best_loss_train_real:
+                        best_loss_train_real = min(loss_train_real_chunk)
+                    loss_train_sim_chunk = []
+                    if min(loss_train_sim_chunk) < best_loss_train_sim:
+                        best_loss_train_sim = min(loss_train_sim_chunk)
+
                 metrics = {
                     "loss/train_real": loss_train_real,
                     "loss/val_real": loss_val_real,
@@ -480,6 +505,7 @@ def train_real_sim(args):
                 }
             
             if (epoch + 1) % args["eval_freq"] == 0:
+            
                 #total_steps = x_steps * y_steps = 4 * 5 = 20
                 if Prepared_Data['data_type'] != "real" and (epoch+1) >= args["eval_start_epoch"]:
                     avg_success = eval_in_env(args, agent, log_dir, epoch + 1, 4, 5)
@@ -531,7 +557,10 @@ def parse_args():
     parser.add_argument("--eval-start-epoch", default=400, type=int)
     parser.add_argument("--eval-only", action="store_true")
     parser.add_argument("--ckpt", default=None, type=str)
-    parser.add_argument("--lr", default=2e-5, type=float)
+    parser.add_argument("--lr", default=2e-4, type=float)
+    parser.add_argument("--sim-lr", default=2e-5, type=float)
+    parser.add_argument("--real-lr", default=2e-5, type=float)
+    parser.add_argument("--lr-update-freq", default=10, type=int)
     parser.add_argument("--num-epochs", default=2000, type=int)
     parser.add_argument("--real-batch-size", default=32678, type=int)
     parser.add_argument("--sim-batch-size", default=32678, type=int)
@@ -551,6 +580,9 @@ if __name__ == '__main__':
         'sim_batch_size': args.sim_batch_size,
         'val_ratio': args.val_ratio,
         'bc_lr': args.lr,
+        'sim_lr': args.sim_lr,
+        'real_lr': args.real_lr,
+        'lr_update_freq': args.lr_update_freq,
         'num_epochs': args.num_epochs,              
         'weight_decay': 1e-2,
         'model_name': '',
