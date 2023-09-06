@@ -473,10 +473,14 @@ def train_real_sim(args):
                     best_loss_train_sim = min(loss_train_sim_chunk)
 
                 if (epoch + 1) % args["lr_update_freq"] == 0:
-                    if np.fabs(min(loss_train_real_chunk)- best_loss_train_real) < real_lr * 5 and real_lr > 2e-6 and np.fabs(min(loss_train_sim_chunk) - best_loss_train_sim) < sim_lr * 5 and sim_lr > 2e-6:
+                    if np.fabs(min(loss_train_real_chunk)- best_loss_train_real) < real_lr * 5 and real_lr > 2e-5 and np.fabs(min(loss_train_sim_chunk) - best_loss_train_sim) < sim_lr * 5 and sim_lr > 2e-5:
                         real_lr = real_lr/10
-                        print('Real lr reduced to {}'.format(real_lr))
                         sim_lr = sim_lr/10
+                        if real_lr < 4e-5:
+                            real_lr = 4e-5
+                        if sim_lr < 4e-5:
+                            sim_lr = 4e-5
+                        print('Real lr reduced to {}'.format(real_lr))
                         print('Sim lr reduced to {}'.format(sim_lr))
                     if min(loss_train_real_chunk) < best_loss_train_real:
                         best_loss_train_real = min(loss_train_real_chunk)

@@ -107,7 +107,10 @@ def play_multiple_real_visual(args):
 
         with open(file_name, 'rb') as file:
             real_demo = pickle.load(file)
-            path = "./sim/raw_data/{}_{}/{}_0004.pickle".format(args['task_name'],args['object_name'],args['object_name'])
+            if args['task_name'] == "pick_place":
+                path = "./sim/raw_data/{}_{}/{}_0004.pickle".format(args['task_name'],args['object_name'],args['object_name'])
+            elif args['task_name'] == "dclaw":
+                path = "./sim/raw_data/{}/{}_0004.pickle".format(args['task_name'],args['object_name'])
             print("sim_file: ", path)
             demo = np.load(path, allow_pickle=True)
 
@@ -165,7 +168,10 @@ def play_multiple_sim_real_visual(args):
 
         with open(file_name, 'rb') as file:
             real_demo = pickle.load(file)
-            path = "./sim/raw_data/{}_{}/{}_0004.pickle".format(args['task_name'],args['object_name'],args['object_name'])
+            if args['task_name'] == "pick_place":
+                path = "./sim/raw_data/{}_{}/{}_0004.pickle".format(args['task_name'],args['object_name'],args['object_name'])
+            elif args['task_name'] == "dclaw":
+                path = "./sim/raw_data/{}/{}_0004.pickle".format(args['task_name'],args['object_name'])
             print("sim_file: ", path)
             demo = np.load(path, allow_pickle=True)
             visual_baked, meta_data = play_one_real_sim_visual_demo(args=args, demo=demo, real_demo=real_demo, real_images=image_file, using_real_data=True)
