@@ -7,7 +7,7 @@ import transforms3d
 from sapien.utils import Viewer
 
 from hand_teleop.env.rl_env.base import BaseRLEnv
-from hand_teleop.env.sim_env.constructor import add_default_scene_light
+from hand_teleop.env.sim_env.constructor import add_random_scene_light,add_default_scene_light
 from hand_teleop.env.sim_env.dclaw_env import DClawEnv
 from hand_teleop.kinematics.mano_robot_hand import MANORobotHand
 from hand_teleop.real_world import lab
@@ -16,7 +16,7 @@ from hand_teleop.utils.common_robot_utils import generate_free_robot_hand_info, 
 
 class DClawRLEnv(DClawEnv, BaseRLEnv):
     def __init__(self, use_gui=False, frame_skip=5, robot_name="adroit_hand_free", constant_object_state=False,
-                 rotation_reward_weight=0, object_name="dclaw_3x", object_seed = 0, object_scale=1, randomness_scale=1, friction=1,
+                 rotation_reward_weight=0, object_name="dclaw_3x",light_mode="random", object_seed = 0, object_scale=1, randomness_scale=1, friction=1,
                  object_pose_noise=0.01, zero_joint_pos=None, **renderer_kwargs):
         super().__init__(use_gui, frame_skip, object_name, object_scale, randomness_scale, friction, **renderer_kwargs)
 
@@ -32,6 +32,7 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
 
         self.object_angle = self.get_object_rotate_angle()
         self.object_total_rotate_angle = 0
+        self.randomness_scale = randomness_scale
 
         # Parse link name
         if self.is_robot_free:
@@ -46,6 +47,18 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
 
         # Object init pose
         self.object_episode_init_pose = sapien.Pose()
+        self.add_lignt(mode=light_mode)    
+        
+
+    def add_lignt(self,mode="default"):
+        if mode == "random":
+            print(f"###############################Add Random Scene Light####################################")
+            add_random_scene_light(self.scene, self.renderer, self.randomness_scale)  
+        elif mode == "default":
+            print(f"###############################Add Default Scene Light####################################")
+            add_default_scene_light(self.scene, self.renderer)
+        else:
+            raise NotImplementedError   
 
     def mano_setup(self, frame_skip, zero_joint_pos):
         self.robot_name = "mano"
@@ -74,7 +87,7 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
         if self.use_visual_obs:
             self.get_observation = self.get_visual_observation
             if not self.no_rgb:
-                add_default_scene_light(self.scene, self.renderer)
+                pass
         else:
             self.get_observation = self.get_oracle_state
 
