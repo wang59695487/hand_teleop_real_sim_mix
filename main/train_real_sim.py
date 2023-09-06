@@ -473,10 +473,9 @@ def train_real_sim(args):
                     best_loss_train_sim = min(loss_train_sim_chunk)
 
                 if (epoch + 1) % args["lr_update_freq"] == 0:
-                    if np.fabs(min(loss_train_real_chunk)- best_loss_train_real) < real_lr * 5:
+                    if np.fabs(min(loss_train_real_chunk)- best_loss_train_real) < real_lr * 5 and real_lr > 2e-6 and np.fabs(min(loss_train_sim_chunk) - best_loss_train_sim) < sim_lr * 5 and sim_lr > 2e-6:
                         real_lr = real_lr/10
                         print('Real lr reduced to {}'.format(real_lr))
-                    if np.fabs(min(loss_train_sim_chunk) - best_loss_train_sim) < sim_lr * 5:
                         sim_lr = sim_lr/10
                         print('Sim lr reduced to {}'.format(sim_lr))
                     if min(loss_train_real_chunk) < best_loss_train_real:
@@ -560,7 +559,7 @@ def parse_args():
     parser.add_argument("--lr", default=2e-4, type=float)
     parser.add_argument("--sim-lr", default=2e-5, type=float)
     parser.add_argument("--real-lr", default=2e-5, type=float)
-    parser.add_argument("--lr-update-freq", default=10, type=int)
+    parser.add_argument("--lr-update-freq", default=100, type=int)
     parser.add_argument("--num-epochs", default=2000, type=int)
     parser.add_argument("--real-batch-size", default=32678, type=int)
     parser.add_argument("--sim-batch-size", default=32678, type=int)
