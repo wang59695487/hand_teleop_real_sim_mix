@@ -114,7 +114,9 @@ def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_ba
     print('=== Loading trajectories ===')
     with open('{}/{}_dataset.pickle'.format(dataset_folder, backbone_type.replace("/", "")),'rb') as file:
         data = pickle.load(file)
-
+    with open('{}/{}_meta_data.pickle'.format(dataset_folder, backbone_type.replace("/", "")),'rb') as file:
+        meta_data = pickle.load(file)
+    num_data_aug = meta_data['num_img_aug']
     real_demo_length = 0
     for i in range(len(data["sim_real_label"])):
         if data["sim_real_label"][i] == 1:
@@ -127,13 +129,13 @@ def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_ba
         
     if real_demo_length > 0 and sim_demo_length > 0:
         sim_real_ratio = sim_demo_length/real_demo_length
-
+        data_type = "real_sim"
         print("=== preparing real data: ===")
         real_data = {'obs': data['obs'][:real_demo_length], 'next_obs': data['next_obs'][:real_demo_length], 'robot_qpos': data['robot_qpos'][:real_demo_length], 'action': data['action'][:real_demo_length], 'sim_real_label': data['sim_real_label'][:real_demo_length]}
-        it_per_epoch_real, bc_train_set_real, bc_train_dataloader_real, bc_validation_dataloader_real = prepare_data(real_data, real_batch_size, val_ratio, seed)
+        it_per_epoch_real, bc_train_set_real, bc_train_dataloader_real, bc_validation_dataloader_real = prepare_data(real_data, real_batch_size, val_ratio, seed, num_data_aug, data_type)
         print("=== preparing sim data: ===")
         sim_data = {'obs': data['obs'][real_demo_length:], 'next_obs': data['next_obs'][real_demo_length:], 'robot_qpos': data['robot_qpos'][real_demo_length:], 'action': data['action'][real_demo_length:], 'sim_real_label': data['sim_real_label'][real_demo_length:]}
-        it_per_epoch_sim, bc_train_set_sim, bc_train_dataloader_sim, bc_validation_dataloader_sim = prepare_data(sim_data, sim_batch_size, val_ratio, seed)
+        it_per_epoch_sim, bc_train_set_sim, bc_train_dataloader_sim, bc_validation_dataloader_sim = prepare_data(sim_data, sim_batch_size, val_ratio, seed, num_data_aug, data_type)
         Prepared_Data = {"it_per_epoch_real": it_per_epoch_real, "bc_train_set_real": bc_train_set_real, 
                      "bc_train_dataloader_real": bc_train_dataloader_real, "bc_validation_dataloader_real": bc_validation_dataloader_real,
                      "it_per_epoch_sim": it_per_epoch_sim, "bc_train_set_sim": bc_train_set_sim, "bc_train_dataloader_sim": bc_train_dataloader_sim, 
@@ -152,12 +154,17 @@ def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_ba
     
 
 
-def prepare_data(data, batch_size , val_ratio = 0.1, seed = 0,
+def prepare_data(data, batch_size , val_ratio = 0.1, seed = 0, num_data_aug = 3,
         data_type="sim_real"):
     
     np.random.seed(seed)
-    random_order = np.random.permutation(len(data["action"]))
-
+    assert len(data["action"]) % num_data_aug == 0
+    size_before_aug = int(len(data["action"])/num_data_aug)
+    random_order_before_aug = np.random.permutation(size_before_aug)
+    random_order = []
+    for order in random_order_before_aug:
+        random_order.extend([order + i * size_before_aug for i in range(num_data_aug)])
+    print(random_order)
     obs = np.array(data['obs'])
     obs = obs[random_order]
     next_obs = np.array(data['next_obs'])

@@ -77,6 +77,7 @@ def play_multiple_sim_visual(args):
     print('dataset is saved in the folder: {}'.format(dataset_folder))
     meta_data_path = "{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
     meta_data['init_obj_poses'] = init_obj_poses
+    meta_data['num_img_aug'] = args['num_data_aug']
     with open(meta_data_path,'wb') as file:
         pickle.dump(meta_data, file)
 
@@ -138,6 +139,7 @@ def play_multiple_real_visual(args):
     print('dataset is saved in the folder: {}'.format(dataset_folder))
     meta_data_path = "{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
     meta_data['init_obj_poses'] = init_obj_poses
+    meta_data['num_img_aug'] = args['num_data_aug']
     with open(meta_data_path,'wb') as file:
         pickle.dump(meta_data, file)
 
@@ -256,6 +258,7 @@ def play_multiple_sim_real_visual(args):
     print('dataset is saved in the folder: {}'.format(dataset_folder))
     meta_data_path = "{}/{}_meta_data.pickle".format(dataset_folder, args["backbone_type"].replace("/", ""))
     meta_data['init_obj_poses'] = init_obj_poses
+    meta_data['num_img_aug'] = args['num_data_aug']
     with open(meta_data_path,'wb') as file:
         pickle.dump(meta_data, file)
         
@@ -620,12 +623,12 @@ def stack_and_save_frames(visual_baked, visual_training_set, demo_id, dataset_fo
             visual_training_set.pop('next_state')
         visual_demo_with_features = generate_features(visual_baked=visual_baked, backbone_type=args['backbone_type'], stack_frames=args['stack_frames'],
                                                       num_data_aug=args['num_data_aug'],augmenter=args['image_augmenter'], model=model, preprocess=preprocess)
-        stacked_next_obs = visual_demo_with_features['obs'][1:]
-        stacked_obs = visual_demo_with_features['obs'][:-1]
-        actions = visual_demo_with_features['action'][:-1]
-        stacked_robot_qpos = visual_demo_with_features['robot_qpos'][:-1]
+        #stacked_next_obs = visual_demo_with_features['obs'][1:]
+        stacked_obs = visual_demo_with_features['obs']
+        actions = visual_demo_with_features['action']
+        stacked_robot_qpos = visual_demo_with_features['robot_qpos']
         visual_training_set['obs'].extend(stacked_obs)
-        visual_training_set['next_obs'].extend(stacked_next_obs)
+        #visual_training_set['next_obs'].extend(stacked_next_obs)
         visual_training_set['action'].extend(actions)
         visual_training_set['robot_qpos'].extend(stacked_robot_qpos)
     else:

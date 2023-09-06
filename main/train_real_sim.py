@@ -377,22 +377,22 @@ def train_real_sim_in_one_epoch(agent,real_lr,sim_lr,sim_real_ratio, it_per_epoc
     loss_val_sim = evaluate(agent, bc_validation_dataloader_sim, L, epoch)
 
 
-    return loss_train_real/len(bc_train_dataloader_real), loss_train_sim/len(bc_train_dataloader_sim), loss_val_real, loss_val_sim
+    return loss_train_real/it_per_epoch_real, loss_train_sim/it_per_epoch_sim, loss_val_real, loss_val_sim
 
-def train_in_one_epoch(agent, it_per_epoch, bc_train_dataloader, bc_validation_dataloader, L, epoch):
+def train_in_one_epoch(agent,br_lr, it_per_epoch, bc_train_dataloader, bc_validation_dataloader, L, epoch):
     
     loss_train = 0
     for _ in tqdm(range(it_per_epoch)):
 
         bc_loss = compute_loss(agent,bc_train_dataloader,L,epoch)
-        loss = agent.update(bc_loss, L, epoch)
+        loss = agent.update(bc_loss, L, epoch, alter_lr=br_lr)
         loss_train += loss
 
     agent.train(train_visual_encoder=False, train_state_encoder=False, train_policy=False, train_inv=False)
 
     loss_val = evaluate(agent, bc_validation_dataloader, L, epoch)
 
-    return loss_train/len(bc_train_dataloader), loss_val
+    return loss_train/it_per_epoch, loss_val
 
 def train_real_sim(args):
     # read and prepare data
@@ -433,14 +433,6 @@ def train_real_sim(args):
                        frame_stack=args['frame_stack']
                        )
 
-    # # Add lr_scheduler
-    # if Prepared_Data['data_type'] == "real_sim":
-    #     T_0 = Prepared_Data['it_per_epoch_real']+Prepared_Data['it_per_epoch_sim']
-    #     agent.init_bc_scheduler(T_0=T_0,T_mult=2)
-    # else:
-    #     T_0 = Prepared_Data['it_per_epoch']*5
-    #     agent.init_bc_scheduler(T_0=T_0,T_mult=2)
-
     L = Logger("{}_{}".format(args['model_name'],args['num_epochs']))
 
     if not args["eval_only"]:
@@ -453,10 +445,12 @@ def train_real_sim(args):
         )
         os.makedirs(log_dir, exist_ok=True)
         best_success = 0
+        br_lr = args['bc_lr']
         real_lr = args['real_lr']
         sim_lr = args['sim_lr']
-        loss_train_real_chunk = []
-        loss_train_sim_chunk = []
+        loss_val_real_chunk = []
+        loss_val_sim_chunk = []
+        loss_val_chunk = []
         for epoch in range(args['num_epochs']):
             print('  ','Epoch: ', epoch)
             if Prepared_Data['data_type'] == "real_sim":
@@ -466,28 +460,29 @@ def train_real_sim(args):
                                                 Prepared_Data['bc_train_dataloader_real'], Prepared_Data['bc_validation_dataloader_real'], 
                                                 Prepared_Data['bc_train_dataloader_sim'], Prepared_Data['bc_validation_dataloader_sim'], L, epoch)
                 
-                loss_train_real_chunk.append(loss_train_real)
-                loss_train_sim_chunk.append(loss_train_sim)
+                loss_val_real_chunk.append(loss_val_real)
+                loss_val_sim_chunk.append(loss_val_sim)
                 if epoch == 0:
-                    best_loss_train_real = min(loss_train_real_chunk)
-                    best_loss_train_sim = min(loss_train_sim_chunk)
+                    best_loss_val_real = min(loss_val_real_chunk)
+                    best_loss_val_sim = min(loss_val_sim_chunk)
 
                 if (epoch + 1) % args["lr_update_freq"] == 0:
-                    if np.fabs(min(loss_train_real_chunk)- best_loss_train_real) < real_lr * 5 and real_lr > 2e-5 and np.fabs(min(loss_train_sim_chunk) - best_loss_train_sim) < sim_lr * 5 and sim_lr > 2e-5:
-                        real_lr = real_lr/10
-                        sim_lr = sim_lr/10
-                        if real_lr < 4e-5:
-                            real_lr = 4e-5
-                        if sim_lr < 4e-5:
-                            sim_lr = 4e-5
+                    if np.fabs(min(loss_val_real_chunk)- best_loss_val_real) < real_lr * args["lr_update_freq"]: 
+                      if np.fabs(min(loss_val_sim_chunk) - best_loss_val_sim) < sim_lr * args["lr_update_freq"]:
+                        real_lr = real_lr/2
+                        sim_lr = sim_lr/2
+                        if real_lr < 1e-6:
+                            real_lr = 1e-6
+                        if sim_lr < 1e-6:
+                            sim_lr = 1e-6
                         print('Real lr reduced to {}'.format(real_lr))
                         print('Sim lr reduced to {}'.format(sim_lr))
-                    if min(loss_train_real_chunk) < best_loss_train_real:
-                        best_loss_train_real = min(loss_train_real_chunk)
-                    if min(loss_train_sim_chunk) < best_loss_train_sim:
-                        best_loss_train_sim = min(loss_train_sim_chunk)
-                    loss_train_real_chunk = []
-                    loss_train_sim_chunk = []
+                    if min(loss_val_real_chunk) < best_loss_val_real:
+                        best_loss_val_real = min(loss_train_val_chunk)
+                    if min(loss_val_sim_chunk) < best_loss_val_sim:
+                        best_loss_val_sim = min(loss_val_sim_chunk)
+                    loss_val_real_chunk = []
+                    loss_val_sim_chunk = []
 
                 metrics = {
                     "loss/train_real": loss_train_real,
@@ -499,13 +494,28 @@ def train_real_sim(args):
 
             else:
 
-                loss_train, loss_val = train_in_one_epoch(agent, Prepared_Data['it_per_epoch'], Prepared_Data['bc_train_dataloader'], 
+                loss_train, loss_val = train_in_one_epoch(agent, br_lr, Prepared_Data['it_per_epoch'], Prepared_Data['bc_train_dataloader'], 
                                                           Prepared_Data['bc_validation_dataloader'], L, epoch)
                 metrics = {
                     "loss/train": loss_train,
                     "loss/val": loss_val,
                     "epoch": epoch
                 }
+
+                loss_val_chunk.append(loss_val)
+
+                if epoch == 0:
+                    best_loss_val = min(loss_val_chunk)
+
+                if (epoch + 1) % args["lr_update_freq"] == 0:
+                    if np.fabs(min(loss_val_chunk)- best_loss_val) <  br_lr * args["lr_update_freq"]:
+                        br_lr = br_lr/2
+                        if br_lr < 1e-6:
+                            br_lr = 1e-6
+                        print('Lr reduced to {}'.format(br_lr))
+                    if min(loss_val_chunk) < best_loss_val:
+                        best_loss_val = min(loss_val_chunk)
+                    loss_val_chunk = []
             
             if (epoch + 1) % args["eval_freq"] == 0:
             
