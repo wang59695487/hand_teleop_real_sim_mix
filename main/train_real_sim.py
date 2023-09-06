@@ -447,9 +447,6 @@ def train_real_sim(args):
         br_lr = args['bc_lr']
         real_lr = args['real_lr']
         sim_lr = args['sim_lr']
-        loss_val_real_chunk = []
-        loss_val_sim_chunk = []
-        loss_val_chunk = []
         for epoch in range(args['num_epochs']):
             print('  ','Epoch: ', epoch)
             if Prepared_Data['data_type'] == "real_sim":
@@ -464,24 +461,6 @@ def train_real_sim(args):
                 if epoch == 0:
                     best_loss_val_real = min(loss_val_real_chunk)
                     best_loss_val_sim = min(loss_val_sim_chunk)
-
-                if (epoch + 1) % args["lr_update_freq"] == 0:
-                    if np.fabs(min(loss_val_real_chunk)- best_loss_val_real) < real_lr * args["lr_update_freq"]: 
-                      if np.fabs(min(loss_val_sim_chunk) - best_loss_val_sim) < sim_lr * args["lr_update_freq"]:
-                        real_lr = real_lr/2
-                        sim_lr = sim_lr/2
-                        if real_lr < 1e-6:
-                            real_lr = 1e-6
-                        if sim_lr < 1e-6:
-                            sim_lr = 1e-6
-                        print('Real lr reduced to {}'.format(real_lr))
-                        print('Sim lr reduced to {}'.format(sim_lr))
-                    if min(loss_val_real_chunk) < best_loss_val_real:
-                        best_loss_val_real = min(loss_train_val_chunk)
-                    if min(loss_val_sim_chunk) < best_loss_val_sim:
-                        best_loss_val_sim = min(loss_val_sim_chunk)
-                    loss_val_real_chunk = []
-                    loss_val_sim_chunk = []
 
                 metrics = {
                     "loss/train_real": loss_train_real,
@@ -500,21 +479,6 @@ def train_real_sim(args):
                     "loss/val": loss_val,
                     "epoch": epoch
                 }
-
-                loss_val_chunk.append(loss_val)
-
-                if epoch == 0:
-                    best_loss_val = min(loss_val_chunk)
-
-                if (epoch + 1) % args["lr_update_freq"] == 0:
-                    if np.fabs(min(loss_val_chunk)- best_loss_val) <  br_lr * args["lr_update_freq"]:
-                        br_lr = br_lr/2
-                        if br_lr < 1e-6:
-                            br_lr = 1e-6
-                        print('Lr reduced to {}'.format(br_lr))
-                    if min(loss_val_chunk) < best_loss_val:
-                        best_loss_val = min(loss_val_chunk)
-                    loss_val_chunk = []
             
             if (epoch + 1) % args["eval_freq"] == 0:
             
@@ -572,7 +536,7 @@ def parse_args():
     parser.add_argument("--lr", default=2e-4, type=float)
     parser.add_argument("--sim-lr", default=2e-5, type=float)
     parser.add_argument("--real-lr", default=2e-5, type=float)
-    parser.add_argument("--lr-update-freq", default=100, type=int)
+    parser.add_argument("--weight-decay", default=1e-2, type=float)
     parser.add_argument("--num-epochs", default=2000, type=int)
     parser.add_argument("--real-batch-size", default=32678, type=int)
     parser.add_argument("--sim-batch-size", default=32678, type=int)
@@ -596,7 +560,7 @@ if __name__ == '__main__':
         'real_lr': args.real_lr,
         'lr_update_freq': args.lr_update_freq,
         'num_epochs': args.num_epochs,              
-        'weight_decay': 1e-2,
+        'weight_decay': args.weight_decay,
         'model_name': '',
         'resume': False,
         'load_model_from': None,
