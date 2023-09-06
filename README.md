@@ -36,7 +36,7 @@ nohup python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=
 
 ###############Real DClaw Data##############
 python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/dclaw_small_scale --out-folder=real/baked_data/dclaw_small_scale --task-name=dclaw --object-name=dclaw_3x --frame-skip=1 --real-delta-ee-pose-bound=0.0005 --light-mode=default --img-data-aug=3 
-# Real_demo img3_0.0005 - Real_Demos: 67927
+# Real_demo img3_0.0005 - Real_Demos: 71487
 
 python hand_teleop/player/play_multiple_demonstrations.py --backbone-type=regnet_y_3_2gf --real-folder=real/raw_data/dclaw_small_scale --out-folder=real/baked_data/dclaw_large_scale --task-name=dclaw --object-name=dclaw_3x --frame-skip=1 --real-delta-ee-pose-bound=0.0005 --light-mode=default --img-data-aug=1
 # Real_demo img1_0.0005 - Real_Demos: 38072 
@@ -47,7 +47,7 @@ nohup python main/train_real_sim.py \
     --backbone-type=regnet_y_3_2gf \
     --lr=4e-4 \
     --lr-update-freq=200 \
-    --real-batch-size=16384 \
+    --real-batch-size=64000 \
     --num-epochs=4000 \
     --eval-freq=100 \
     --val-ratio=0.1 \

@@ -62,7 +62,6 @@ class BCDataset(Dataset):
         elif data != None:
             self.keys = data.keys()
             self.obs = torch.from_numpy(np.array(data['obs']))
-            self.next_obs = torch.from_numpy(np.array(data['next_obs']))
             self.robot_qpos = torch.from_numpy(np.array(data['robot_qpos']))
             self.state = None
             self.next_state = None
@@ -98,7 +97,6 @@ class BCDataset(Dataset):
                 return obs, next_obs, state, next_state, action, label
         else:
             obs = self.obs[idx]
-            next_obs = self.next_obs[idx]
             state = None
             next_state = None
             action = self.action[idx]
@@ -108,7 +106,7 @@ class BCDataset(Dataset):
                 state = self.state[idx]
                 next_state = self.next_state[idx]
                 return obs, next_obs, state, next_state, action, label
-        return obs, next_obs, robot_qpos, action, label
+        return obs, robot_qpos, action, label
 
 def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_batch_size, val_ratio = 0.1, seed = 0):
     print('=== Loading trajectories ===')
@@ -145,7 +143,7 @@ def prepare_real_sim_data(dataset_folder, backbone_type, real_batch_size, sim_ba
         print("=== demo_length: ===")
         # print(len(data["sim_real_label"]))
         data_type = "sim" if real_demo_length == 0 else "real"
-        it_per_epoch, bc_train_set, bc_train_dataloader, bc_validation_dataloader = prepare_data(data, real_batch_size, val_ratio, seed, data_type)
+        it_per_epoch, bc_train_set, bc_train_dataloader, bc_validation_dataloader = prepare_data(data, real_batch_size, val_ratio, seed, num_data_aug, data_type)
         Prepared_Data = {"it_per_epoch": it_per_epoch, "bc_train_set": bc_train_set, "bc_train_dataloader": bc_train_dataloader, 
                      "bc_validation_dataloader": bc_validation_dataloader,"data_type": data_type}
 
@@ -164,11 +162,8 @@ def prepare_data(data, batch_size , val_ratio = 0.1, seed = 0, num_data_aug = 3,
     random_order = []
     for order in random_order_before_aug:
         random_order.extend([order + i * size_before_aug for i in range(num_data_aug)])
-    print(random_order)
     obs = np.array(data['obs'])
     obs = obs[random_order]
-    next_obs = np.array(data['next_obs'])
-    next_obs = next_obs[random_order]
     robot_qpos = np.array(data['robot_qpos'])
     robot_qpos = robot_qpos[random_order]
     targets = np.array(data["action"])
@@ -181,8 +176,8 @@ def prepare_data(data, batch_size , val_ratio = 0.1, seed = 0, num_data_aug = 3,
         labels = np.array(data["sim_real_label"])
     labels = labels[random_order]
     cutoff = int(len(obs) * val_ratio)
-    train_data = dict(obs=obs[cutoff:], next_obs=next_obs[cutoff:], action=targets[cutoff:], robot_qpos=robot_qpos[cutoff:], sim_real_label=labels[cutoff:])
-    validation_data = dict(obs=obs[:cutoff], next_obs=next_obs[:cutoff], action=targets[:cutoff], robot_qpos=robot_qpos[:cutoff], sim_real_label=labels[:cutoff])
+    train_data = dict(obs=obs[cutoff:], action=targets[cutoff:], robot_qpos=robot_qpos[cutoff:], sim_real_label=labels[cutoff:])
+    validation_data = dict(obs=obs[:cutoff], action=targets[:cutoff], robot_qpos=robot_qpos[:cutoff], sim_real_label=labels[:cutoff])
 
     bc_train_set = BCDataset(data_paths=None, data=train_data)
     bc_validation_set = BCDataset(data_paths=None, data=validation_data)

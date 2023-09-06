@@ -45,7 +45,7 @@ def evaluate(agent, validation_loader, L, epoch):
             valid_states = data_batch[2].to(device)
             loss = agent.validate(obs=valid_obs, state=valid_states, action=valid_actions, L=L, step=epoch, mode='eval') 
         else:
-            valid_robot_qpos = data_batch[2].to(device)
+            valid_robot_qpos = data_batch[-3].to(device)
             valid_states = None
             loss = agent.validate(concatenated_obs=valid_obs, action=valid_actions, robot_qpos=valid_robot_qpos, L=L, step=epoch, sim_real_label=sim_real_label, mode='eval')
         loss_val += loss
@@ -318,7 +318,6 @@ def compute_loss(agent, bc_train_dataloader, L, epoch):
 
     data_batch = next(iter(bc_train_dataloader))
     obs_batch = data_batch[0].to(device)
-    next_obs_batch = data_batch[1].to(device)
     action_batch = data_batch[-2].to(device)
     sim_real_label = data_batch[-1].to(device)
 
@@ -328,12 +327,12 @@ def compute_loss(agent, bc_train_dataloader, L, epoch):
     else:
         state_batch = None
         next_state_batch = None
-        robot_qpos_batch = data_batch[2].to(device)
+        robot_qpos_batch = data_batch[-3].to(device)
 
     if state_batch is not None:
-        loss = agent.compute_loss(obs=obs_batch, state=state_batch, next_obs=next_obs_batch, next_state=next_state_batch,  action=action_batch, L=L, step=epoch, concatenated_obs=None, concatenated_next_obs=None,sim_real_label=sim_real_label)
+        loss = agent.compute_loss(obs=obs_batch, state=state_batch, next_state=next_state_batch,  action=action_batch, L=L, step=epoch, concatenated_obs=None, concatenated_next_obs=None,sim_real_label=sim_real_label)
     else:
-        loss = agent.compute_loss(concatenated_obs=obs_batch, concatenated_next_obs=next_obs_batch, action=action_batch, robot_qpos=robot_qpos_batch, sim_real_label=sim_real_label, L=L, step=epoch)
+        loss = agent.compute_loss(concatenated_obs=obs_batch, action=action_batch, robot_qpos=robot_qpos_batch, sim_real_label=sim_real_label, L=L, step=epoch)
 
     return loss
 
