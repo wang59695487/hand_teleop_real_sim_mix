@@ -20,6 +20,7 @@ def parse_args():
 
     # data
     parser.add_argument("--robot", default="xarm6_allegro_modified_finger")
+    parser.add_argument("--robot-dof", default=22, type=int)
 
     # model
     parser.add_argument("--backbone", default="regnet_y_3_2gf")
@@ -37,7 +38,7 @@ def parse_args():
     parser.add_argument("--lr", default=1e-5, type=float)
     parser.add_argument("--wd-coef", default=0.01, type=float)
     parser.add_argument("--batch-size", default=128, type=int)
-    parser.add_argument("--epochs", default=2000, type=int)
+    parser.add_argument("--epochs", default=100, type=int)
     parser.add_argument("--grad-acc", default=1, type=int)
     parser.add_argument("--aug-prob", default=0.5, type=float)
 
@@ -48,8 +49,8 @@ def parse_args():
     parser.add_argument("--final-y-steps", default=10, type=int)
     parser.add_argument("--val-pct", default=0.1, type=float)
     parser.add_argument("--eval-only", action="store_true")
-    parser.add_argument("--eval-beg", default=200, type=int)
-    parser.add_argument("--eval-freq", default=100, type=int)
+    parser.add_argument("--eval-beg", default=0, type=int)
+    parser.add_argument("--eval-freq", default=5, type=int)
     parser.add_argument("--max-eval-steps", default=2000, type=int)
 
     # others

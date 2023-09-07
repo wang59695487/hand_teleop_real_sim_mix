@@ -46,10 +46,9 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
 
         # Object init pose
         self.object_episode_init_pose = sapien.Pose()
-        # self.add_lignt()
-        
+        self.add_light("eval")
 
-    def add_lignt(self,mode="train"):
+    def add_light(self, mode="train"):
         if mode == "train":
             print(f"###############################Add Random Scene Light####################################")
             add_random_scene_light(self.scene, self.renderer, self.randomness_scale)  

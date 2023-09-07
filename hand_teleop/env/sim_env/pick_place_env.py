@@ -76,7 +76,7 @@ class PickPlaceEnv(BaseSimulationEnv):
         else:
             raise NotImplementedError
 
-        print('################################Randomizing Object Texture##########################')
+        # print('################################Randomizing Object Texture##########################')
         # self.generate_random_object_texture(randomness_scale)
 
     def generate_random_object_pose(self, randomness_scale):

@@ -134,8 +134,11 @@ class Agent(nn.Module):
 
         return model
 
-    def forward(self, images, robot_qpos, mode):
-        vis_feats = self.get_image_feats(images)
+    def forward(self, vis_inputs, robot_qpos, mode):
+        if vis_inputs.ndim == 4:
+            vis_feats = self.get_image_feats(vis_inputs)
+        else:
+            vis_feats = vis_inputs
         vis_feats = vis_feats.unfold(0, self.args.window_size, 1)\
             .permute((0, 2, 1))
 

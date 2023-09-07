@@ -442,12 +442,7 @@ class Trainer:
         real_camera_cfg = {
             "relocate_view": dict( pose=lab.ROBOT2BASE * lab.CAM2ROBOT, fov=lab.fov, resolution=(224, 224))
         }
-        
-        if task_name == 'table_door':
-            camera_cfg = {
-            "relocate_view": dict(position=np.array([-0.25, -0.25, 0.55]), look_at_dir=np.array([0.25, 0.25, -0.45]),
-                                    right_dir=np.array([1, -1, 0]), fov=np.deg2rad(69.4), resolution=(224, 224))
-            }           
+
         env.setup_camera_from_config(real_camera_cfg)
 
         # Specify modality

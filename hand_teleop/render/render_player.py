@@ -50,7 +50,7 @@ class RenderPlayer:
         self.env_class = meta_data["env_class"]
         if self.env_class == "PickPlaceEnv":
             self.tables = self.create_pick_place_table(table_height=0.91)
-            self.plate = load_ycb_object(self.scene, "plate", render_only=True)
+            self.plate = load_ycb_object(self.scene, "plate", render_only=True, static=True)
             self.manipulated_object = load_ycb_object(self.scene, env_args["object_name"], render_only=True)
 
         # Load robot

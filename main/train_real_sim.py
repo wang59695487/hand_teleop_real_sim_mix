@@ -183,7 +183,7 @@ def eval_in_env(args, agent, log_dir, epoch, x_steps, y_steps):
 
     # since in simulation, we always use simulated data, so sim_real_label is always 0
     sim_real_label = [0]
-    env.add_lignt(mode="eval")
+    env.add_light(mode="eval")
     
     for x in np.linspace(-0.08, 0.08, x_steps):        # -0.05 0 /// -0.1 0 // -0.1 0.1
         for y in np.linspace(0.22, 0.28, y_steps):  # 0.12 0.18 /// 0.1 0.2 // 0.2 0.3
