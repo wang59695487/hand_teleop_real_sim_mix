@@ -21,10 +21,11 @@ def parse_args():
     # data
     parser.add_argument("--robot", default="xarm6_allegro_modified_finger")
     parser.add_argument("--robot-dof", default=22, type=int)
+    parser.add_argument("--arm-dof", default=6, type=int)
 
     # model
     parser.add_argument("--backbone", default="regnet_y_3_2gf")
-    parser.add_argument("--vis-dims", default=6048, type=int)
+    parser.add_argument("--vis-dims", default=2048, type=int)
     parser.add_argument("--qpos-dims", default=116, type=int)
     parser.add_argument("--hidden-channels", default=1024, type=int)
     parser.add_argument("--n-vis-layers", default=2, type=int)
@@ -33,6 +34,7 @@ def parse_args():
     parser.add_argument("--out-channels", default=22, type=int)
     parser.add_argument("--finetune-backbone", action="store_true")
     parser.add_argument("--window-size", default=4, type=int)
+    parser.add_argument("--act-scale", default=1, type=float)
 
     # training
     parser.add_argument("--lr", default=1e-5, type=float)
@@ -41,6 +43,8 @@ def parse_args():
     parser.add_argument("--epochs", default=100, type=int)
     parser.add_argument("--grad-acc", default=1, type=int)
     parser.add_argument("--aug-prob", default=0.5, type=float)
+    parser.add_argument("--small-scale", action="store_true")
+    parser.add_argument("--loss-fn", default="mse")
 
     # evaluation
     parser.add_argument("--eval-x-steps", default=4, type=int)
@@ -59,6 +63,7 @@ def parse_args():
     parser.add_argument("--n-workers", default=8, type=int)
     parser.add_argument("--device", default="cuda:0", type=str)
     parser.add_argument("--wandb-off", action="store_true")
+    parser.add_argument("--one-demo", action="store_true")
 
     # number of render workers
     parser.add_argument("--n-renderers", default=32, type=int)
@@ -73,9 +78,10 @@ def parse_args():
     if args.debug:
         args.n_workers = 0
         args.eval_freq = 1
-        args.eval_x_steps = 1
-        args.eval_y_steps = 1
+        args.eval_x_steps = 2
+        args.eval_y_steps = 2
         args.eval_beg = 0
+        args.max_eval_steps = 10
 
     return args
 
@@ -104,7 +110,7 @@ def main():
         trainer.train()
         trainer.load_checkpoint(f"{trainer.log_dir}/model_best.pth", False)
 
-    avg_success = trainer.eval_in_env(trainer.args, "best",
+    avg_success = trainer.eval_in_env("best",
         trainer.args.final_x_steps, trainer.args.final_y_steps)
     print(f"Average success rate: {avg_success:.4f}")
     wandb.log({"final_success": avg_success})

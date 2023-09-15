@@ -209,10 +209,10 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
         # check the x-y position of the object against the target
         object_z = self.manipulated_object.pose.p[-1]
         if object_z >= 0.105:
-            self.is_object_lifted = True
+            self.is_object_lifted = object_z >= 0.105
 
-        return self.is_object_lifted <= 0.15
-    
+        return self.is_object_lifted
+
     def _is_object_still(self):
         # check if the object is close to still
         velocity_norm = np.linalg.norm(self.manipulated_object.velocity)

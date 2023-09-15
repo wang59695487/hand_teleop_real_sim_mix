@@ -1,3 +1,6 @@
+from copy import deepcopy
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.autograd import Function
@@ -108,6 +111,7 @@ class Agent(nn.Module):
         self.args = args
 
         self.vision_net = self.init_vision_net()
+        self.vision_weights = deepcopy(self.vision_net.state_dict())
 
         self.policy_net = self.init_policy_net()
 
@@ -137,15 +141,12 @@ class Agent(nn.Module):
     def forward(self, vis_inputs, robot_qpos, mode):
         if vis_inputs.ndim == 4:
             vis_feats = self.get_image_feats(vis_inputs)
+            vis_feats = vis_feats.unfold(0, self.args.window_size, 1)\
+                .permute((0, 2, 1))
+            b = vis_feats.size(0)
+            vis_feats = vis_feats.reshape((b, -1))
         else:
             vis_feats = vis_inputs
-        vis_feats = vis_feats.unfold(0, self.args.window_size, 1)\
-            .permute((0, 2, 1))
-
-        b = vis_feats.size(0)
-        vis_feats = vis_feats.reshape((b, -1))
-        robot_qpos = robot_qpos.unfold(0, self.args.window_size, 1)\
-            .permute((0, 2, 1)).reshape((b, -1))
 
         outputs = self.policy_net(vis_feats, robot_qpos, mode)
 
@@ -156,6 +157,9 @@ class Agent(nn.Module):
         action = self(images, qpos, mode)
         action = action.cpu().numpy()
 
+        if self.args.act_scale != 1:
+            action[:, :6] *= self.args.act_scale
+
         return action
 
     def get_image_feats(self, images):
@@ -163,6 +167,8 @@ class Agent(nn.Module):
             feats = self.vision_net(images)
         else:
             with torch.no_grad():
+                self.vision_net.load_state_dict(self.vision_weights)
+                self.vision_net.eval()
                 feats = self.vision_net(images)
 
         return feats

@@ -376,6 +376,7 @@ class BaseRLEnv(BaseSimulationEnv, gym.Env):
                     if VISUAL_OBS_RETURN_TORCH:
                         import torch
                         output_array = torch.from_dlpack(dl_tensor)
+                        output_array = torch.clone(output_array)
                     else:
                         output_array = np.zeros(shape, dtype=np.float32)
                         sapien.dlpack.dl_to_numpy_cuda_async_unchecked(dl_tensor, output_array)

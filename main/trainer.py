@@ -73,6 +73,7 @@ class Trainer:
         demo_paths_train = [demo_paths[i] for i in train_idx]
         demo_paths_val = [demo_paths[i] for i in val_idx]
 
+
         with open(demo_paths_train[0], "rb") as f:
             sample_demo = pickle.load(f)
         self.player = self.init_player(sample_demo)
