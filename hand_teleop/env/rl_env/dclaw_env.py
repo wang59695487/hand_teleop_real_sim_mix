@@ -7,7 +7,7 @@ import transforms3d
 from sapien.utils import Viewer
 
 from hand_teleop.env.rl_env.base import BaseRLEnv
-from hand_teleop.env.sim_env.constructor import add_default_scene_light
+from hand_teleop.env.sim_env.constructor import add_default_scene_light,random_scene_light,random_environment_map
 from hand_teleop.env.sim_env.dclaw_env import DClawEnv
 from hand_teleop.kinematics.mano_robot_hand import MANORobotHand
 from hand_teleop.real_world import lab
@@ -16,7 +16,7 @@ from hand_teleop.utils.common_robot_utils import generate_free_robot_hand_info, 
 
 class DClawRLEnv(DClawEnv, BaseRLEnv):
     def __init__(self, use_gui=False, frame_skip=5, robot_name="adroit_hand_free", constant_object_state=False,
-                 rotation_reward_weight=0, object_name="dclaw_3x", object_seed = 0, object_scale=1, randomness_scale=1, friction=1,
+                 rotation_reward_weight=0, object_name="dclaw_3x",light_mode="default", object_seed = 0, object_scale=1, randomness_scale=1, friction=1,
                  object_pose_noise=0.01, zero_joint_pos=None, **renderer_kwargs):
         super().__init__(use_gui, frame_skip, object_name, object_scale, randomness_scale, friction, **renderer_kwargs)
 
@@ -32,6 +32,7 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
 
         self.object_angle = self.get_object_rotate_angle()
         self.object_total_rotate_angle = 0
+        self.randomness_scale = randomness_scale
 
         # Parse link name
         if self.is_robot_free:
@@ -46,6 +47,16 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
 
         # Object init pose
         self.object_episode_init_pose = sapien.Pose()
+        print(f"###############################Add Default Scene Light####################################")
+        add_default_scene_light(self.scene, self.renderer)
+        if light_mode == "random":
+            random_environment_map(self.scene, randomness_scale)
+            self.random_light(randomness_scale)
+
+    def random_light(self,randomness_scale=1):
+        print(f"###############################Random Scene Light####################################")
+        random_scene_light(self.scene, self.renderer, randomness_scale)
+  
 
     def mano_setup(self, frame_skip, zero_joint_pos):
         self.robot_name = "mano"
@@ -74,7 +85,7 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
         if self.use_visual_obs:
             self.get_observation = self.get_visual_observation
             if not self.no_rgb:
-                add_default_scene_light(self.scene, self.renderer)
+                pass
         else:
             self.get_observation = self.get_oracle_state
 
@@ -127,6 +138,7 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
         # random_pos = self.np_random.randn(3) * self.object_pose_noise
         # self.object_episode_init_pose = self.object_episode_init_pose * sapien.Pose(random_pos, random_quat)
         self.object_angle = self.get_object_rotate_angle()
+        self.rounds = 0
         self.object_total_rotate_angle = 0
 
         return self.get_observation()
@@ -151,21 +163,31 @@ class DClawRLEnv(DClawEnv, BaseRLEnv):
             if "up" in link.get_name():
                 rotate_object_qpos = link.get_pose().q
                 x,y,z = transforms3d.euler.quat2euler(rotate_object_qpos)
+                if z < 0:
+                    z = 2 * np.pi + z
                 z_angle = z/np.pi*180
-
         return z_angle
 
     def _is_object_rotated(self):
         # check the x-y position of the object against the target
         delta_angle = self.get_object_rotate_angle() - self.object_angle
+        if delta_angle < -300:
+            self.rounds += 1
+            delta_angle = 360 + delta_angle
         self.object_angle = self.get_object_rotate_angle()
-        self.object_total_rotate_angle += np.fabs(delta_angle)
+        self.object_total_rotate_angle += delta_angle
 
         return delta_angle != 0
 
+    def _is_success(self):
+
+        return self.object_total_rotate_angle > 720
+
     def get_info(self):
         return {"is_object_rotated": self._is_object_rotated(),
-                "object_total_rotate_angle": self.object_total_rotate_angle}
+                "object_total_rotate_angle": self.object_total_rotate_angle,
+                "success": self._is_success()
+                }
 
 
 def main_env():

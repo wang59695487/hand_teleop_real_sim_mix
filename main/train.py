@@ -7,7 +7,6 @@ import torch
 import wandb
 from omegaconf import OmegaConf
 
-from trainer import Trainer
 from vector_trainer import VecTrainer
 
 
@@ -25,26 +24,33 @@ def parse_args():
 
     # model
     parser.add_argument("--backbone", default="regnet_y_3_2gf")
-    parser.add_argument("--vis-dims", default=2048, type=int)
-    parser.add_argument("--qpos-dims", default=116, type=int)
-    parser.add_argument("--hidden-channels", default=1024, type=int)
-    parser.add_argument("--n-vis-layers", default=2, type=int)
-    parser.add_argument("--n-policy-layers", default=3, type=int)
-    parser.add_argument("--drop-prob", default=0.2, type=float)
-    parser.add_argument("--out-channels", default=22, type=int)
-    parser.add_argument("--finetune-backbone", action="store_true")
-    parser.add_argument("--window-size", default=4, type=int)
-    parser.add_argument("--act-scale", default=1, type=float)
+    parser.add_argument("--n-enc-layers", default=4, type=int)
+    parser.add_argument("--n-dec-layers", default=7, type=int)
+    parser.add_argument("--n-heads", default=8, type=int)
+    parser.add_argument("--n-queries", default=30, type=int)
+    parser.add_argument("--hidden-dims", default=256, type=int)
+    parser.add_argument("--forward-dims", default=3200, type=int)
+    parser.add_argument("--dropout", default=0.1, type=float)
+    parser.add_argument("--pre_norm", action="store_true")
+    parser.add_argument("--action-dims", default=22, type=int)
+    parser.add_argument("--latent-dims", default=1024, type=int)
+    parser.add_argument("--vision-dims", default=1512, type=int)
+    parser.add_argument("--qpos-dims", default=29, type=int)
+    parser.add_argument("--get-obj-pose", action="store_true")
 
     # training
-    parser.add_argument("--lr", default=1e-5, type=float)
-    parser.add_argument("--wd-coef", default=0.01, type=float)
-    parser.add_argument("--batch-size", default=128, type=int)
+    parser.add_argument("--max-lr", default=1e-3, type=float)
+    parser.add_argument("--min-lr", default=2e-6, type=float)
+    parser.add_argument("--wd-coef", default=1e-2, type=float)
+    parser.add_argument("--batch-size", default=256, type=int)
     parser.add_argument("--epochs", default=100, type=int)
     parser.add_argument("--grad-acc", default=1, type=int)
-    parser.add_argument("--aug-prob", default=0.5, type=float)
     parser.add_argument("--small-scale", action="store_true")
-    parser.add_argument("--loss-fn", default="mse")
+    parser.add_argument("--w-kl-loss", default=1, type=float)
+    parser.add_argument("--n-renderers", default=4, type=int)
+    parser.add_argument("--finetune-backbone", action="store_true")
+    parser.add_argument("--min-demo-len", default=400, type=int)
+    parser.add_argument("--rnd-lvl", default=1, type=int)
 
     # evaluation
     parser.add_argument("--eval-x-steps", default=4, type=int)
@@ -55,7 +61,8 @@ def parse_args():
     parser.add_argument("--eval-only", action="store_true")
     parser.add_argument("--eval-beg", default=0, type=int)
     parser.add_argument("--eval-freq", default=5, type=int)
-    parser.add_argument("--max-eval-steps", default=2000, type=int)
+    parser.add_argument("--max-eval-steps", default=1200, type=int)
+    parser.add_argument("--w-action-ema", default=0.01, type=float)
 
     # others
     parser.add_argument("--debug", action="store_true")
@@ -64,9 +71,6 @@ def parse_args():
     parser.add_argument("--device", default="cuda:0", type=str)
     parser.add_argument("--wandb-off", action="store_true")
     parser.add_argument("--one-demo", action="store_true")
-
-    # number of render workers
-    parser.add_argument("--n-renderers", default=32, type=int)
 
     args = parser.parse_args()
 
@@ -83,6 +87,9 @@ def parse_args():
         args.eval_beg = 0
         args.max_eval_steps = 10
 
+    if args.get_obj_pose:
+        args.qpos_dims += 7
+
     return args
 
 
@@ -98,17 +105,14 @@ def main():
         torch.autograd.set_detect_anomaly(True)
 
     set_rng_seed(args.seed)
-    if args.n_renderers > 1:
-        trainer = VecTrainer(args)
-    else:
-        trainer = Trainer(args)
+    trainer = VecTrainer(args)
 
     if args.ckpt is not None:
         trainer.load_checkpoint(args.ckpt)
 
     if not args.eval_only:
         trainer.train()
-        trainer.load_checkpoint(f"{trainer.log_dir}/model_best.pth", False)
+        trainer.load_checkpoint(f"{trainer.log_dir}/model_best.pth")
 
     avg_success = trainer.eval_in_env("best",
         trainer.args.final_x_steps, trainer.args.final_y_steps)

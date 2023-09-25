@@ -76,8 +76,8 @@ class PickPlaceEnv(BaseSimulationEnv):
         else:
             raise NotImplementedError
 
-        # print('################################Randomizing Object Texture##########################')
-        # self.generate_random_object_texture(randomness_scale)
+        print('################################Randomizing Object Texture##########################')
+        self.generate_random_object_texture(randomness_scale)
 
     def generate_random_object_pose(self, randomness_scale):
         # Small Random
@@ -100,8 +100,15 @@ class PickPlaceEnv(BaseSimulationEnv):
         random_pose = sapien.Pose(position, orientation)
         return random_pose
 
+    def generate_random_target_pose(self, randomness_scale):
+        pos_x = self.np_random.uniform(low=-0.15, high=0.15) * randomness_scale
+        pos_y = self.np_random.uniform(low=-0.12, high=-0.2) * randomness_scale
+        random_pose = sapien.Pose([pos_x, pos_y, 0.1])
+        random_pose = sapien.Pose([-0.005, -0.12, 0])
+
+        return random_pose
     def generate_random_object_texture(self, randomness_scale):
-        var = 0.3 * randomness_scale
+        var = 0.2 * randomness_scale
         default_color = np.array([1, 0, 0, 1])
         for visual in self.plate.get_visual_bodies():
             for geom in visual.get_render_shapes():
@@ -128,17 +135,6 @@ class PickPlaceEnv(BaseSimulationEnv):
                 mat.set_roughness(random.uniform(0.7 - var, 0.7 + var))
                 mat.set_metallic(random.uniform(0, var))
                 geom.set_material(mat)
-
-    def generate_random_target_pose(self, randomness_scale):
-        pos_x = self.np_random.uniform(low=-0.15, high=0.15) * randomness_scale
-        pos_y = self.np_random.uniform(low=-0.12, high=-0.2) * randomness_scale
-        random_pose = sapien.Pose([pos_x, pos_y, 0.1])
-
-        ###################0.73 setting###############################
-        # random_pose = sapien.Pose([0.05, -0.2, 0.1])
-        random_pose = sapien.Pose([-0.005, -0.12, 0])
-
-        return random_pose
 
     def reset_env(self):
         # pose = self.generate_random_object_pose(self.randomness_scale)

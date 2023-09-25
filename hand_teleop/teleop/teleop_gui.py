@@ -15,6 +15,12 @@ DEFAULT_TABLE_TOP_CAMERAS = {
     "bird": dict(position=np.array([0, 0, 1.0]), look_at_dir=np.array([0, 0, -1]), right_dir=np.array([0, -1, 0]),
                  name="bird_view", ),
 }
+DEFAULT_ROTATING_CAMERAS = {
+    "left": dict(position=np.array([0, -0.6, 0.4]), look_at_dir=np.array([0, 1, -0.4]), right_dir=np.array([1, 0, 0]),
+                 name="left_view", ),
+    "bird": dict(position=np.array([-0.5, 0.2, 0.2]), look_at_dir=np.array([1, -0.2, 0]), right_dir=np.array([0, -1, 0]),
+                 name="bird_view", ),
+}
 
 
 class GUIBase:
@@ -113,11 +119,11 @@ class GUIBase:
 
     def render(self, render_all_views=True, additional_views: Optional[List[np.ndarray]] = None, horizontal=True):
         self.scene.update_render()
-        self.viewer.render()
-        if not self.viewer.closed:
-            for key, action in self.keydown_map.items():
-                if self.viewer.window.key_down(key):
-                    action()
+        # self.viewer.render()
+        # if not self.viewer.closed:
+        #     for key, action in self.keydown_map.items():
+        #         if self.viewer.window.key_down(key):
+        #             action()
         if (additional_views is not None or len(self.cams) > 0) and render_all_views:
             views = self._fetch_all_views(use_bgr=True)
             if additional_views is not None:

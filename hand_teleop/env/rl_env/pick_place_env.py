@@ -11,13 +11,13 @@ from hand_teleop.env.rl_env.base import BaseRLEnv
 from hand_teleop.env.sim_env.pick_place_env import PickPlaceEnv
 from hand_teleop.real_world import lab
 from hand_teleop.utils.common_robot_utils import generate_free_robot_hand_info, generate_arm_robot_hand_info
-from hand_teleop.env.sim_env.constructor import add_default_scene_light, add_random_scene_light
+from hand_teleop.env.sim_env.constructor import add_default_scene_light, random_scene_light, random_environment_map
 from hand_teleop.kinematics.mano_robot_hand import MANORobotHand
 
 
 class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
     def __init__(self, use_gui=False, frame_skip=5, robot_name="adroit_hand_free", constant_object_state=False,
-                 rotation_reward_weight=0, object_category="YCB", object_name="tomato_soup_can", object_seed = 0, object_scale=1, 
+                 rotation_reward_weight=0, object_category="YCB", object_name="tomato_soup_can",light_mode="default",object_seed = 0, object_scale=1, 
                  randomness_scale=1, friction=1, object_pose_noise=0.01, zero_joint_pos=None, **renderer_kwargs):
         super().__init__(use_gui, frame_skip, object_category, object_name, object_scale, randomness_scale, friction,
                          **renderer_kwargs)
@@ -46,15 +46,15 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
 
         # Object init pose
         self.object_episode_init_pose = sapien.Pose()
-        self.add_light("eval")
+        print(f"###############################Add Default Scene Light####################################")
+        add_default_scene_light(self.scene, self.renderer)
+        if light_mode == "random":
+            random_environment_map(self.scene, randomness_scale)
+            self.random_light(randomness_scale)
 
-    def add_light(self, mode="train"):
-        if mode == "train":
-            print(f"###############################Add Random Scene Light####################################")
-            add_random_scene_light(self.scene, self.renderer, self.randomness_scale)  
-        else:
-            print(f"###############################Add Default Scene Light####################################")
-            add_default_scene_light(self.scene, self.renderer)
+    def random_light(self,randomness_scale=1):
+        print(f"###############################Random Scene Light####################################")
+        random_scene_light(self.scene, self.renderer, randomness_scale)
 
     def mano_setup(self, frame_skip, zero_joint_pos):
         self.robot_name = "mano"
@@ -82,10 +82,8 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
         # Scene light and obs
         if self.use_visual_obs:
             self.get_observation = self.get_visual_observation
-            # Add Random Scene Light
             if not self.no_rgb:
-                print(f"###############################Add Default Scene Light####################################")
-                add_default_scene_light(self.scene, self.renderer,self.randomness_scale)
+                add_default_scene_light(self.scene, self.renderer)
         else:
             self.get_observation = self.get_oracle_state              
 
@@ -161,6 +159,7 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
         self.reset_internal()
         #reset the is_object_lifted flag
         self.is_object_lifted = False
+        self.object_hand_contact = False
         # NOTE: No randomness for now.
         # self.object_episode_init_pose = self.manipulated_object.get_pose()
         # random_quat = transforms3d.euler.euler2quat(*(self.np_random.randn(3) * self.object_pose_noise * 10))
@@ -181,7 +180,27 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
     @cached_property
     def horizon(self):
         return 250
+
+    def _is_object_hand_contact(self):
+        # check if the object is in contact with the plate
+        all_contacts = self.scene.get_contacts()
+        for contact in all_contacts:
+            if "link" in contact.actor0.name and contact.actor1.name == self.manipulated_object.name:
+                self.object_hand_contact = True
+                break
+            elif "link" in contact.actor1.name and contact.actor0.name == self.manipulated_object.name:
+                self.object_hand_contact = True
+                break
+
+        return self.object_hand_contact
     
+    def _object_target_distance(self):
+        # check the x-y position of the object against the target
+        object_xy = self.manipulated_object.pose.p[:-1]
+        target_xy = self.target_pose.p[:-1]
+        dist_xy = np.linalg.norm(object_xy - target_xy)
+
+        return dist_xy
     def _is_object_plate_contact(self):
         # check if the object is in contact with the plate
         all_contacts = self.scene.get_contacts()
@@ -201,15 +220,15 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
         object_xy = self.manipulated_object.pose.p[:-1]
         target_xy = self.target_pose.p[:-1]
         dist_xy = np.linalg.norm(object_xy - target_xy)
-        #close_to_target = dist_xy <= 0.25
+        close_to_target = dist_xy <= 0.25
 
-        return dist_xy
+        return close_to_target
     
     def _is_object_lifted(self):
         # check the x-y position of the object against the target
         object_z = self.manipulated_object.pose.p[-1]
         if object_z >= 0.105:
-            self.is_object_lifted = object_z >= 0.105
+            self.is_object_lifted = True
 
         return self.is_object_lifted
 
@@ -219,7 +238,7 @@ class PickPlaceRLEnv(PickPlaceEnv, BaseRLEnv):
         object_is_still = velocity_norm <= 1e-6
 
         return object_is_still
-    
+
     def _is_success(self):
 
         # print({

@@ -37,7 +37,7 @@ class DClawEnv(BaseSimulationEnv):
 
         # Construct scene
         self.scene = self.engine.create_scene()
-        self.scene.set_timestep(0.004)
+        self.scene.set_timestep(0.002)
 
         # Dummy camera creation to initial geometry object
         if self.renderer and not self.no_rgb:
@@ -61,15 +61,15 @@ class DClawEnv(BaseSimulationEnv):
         builder = loader.load_file_as_articulation_builder(str(urdf_path))
         self.manipulated_object = builder.build(fix_root_link=True)
         rotating_joint = self.manipulated_object.get_active_joints()[0]
-        rotating_joint.set_drive_property(0, 5)        
+        rotating_joint.set_drive_property(0, 0.1)
         self.generate_random_object_texture()
 
     def generate_random_object_pose(self, randomness_scale):
         random.seed(self.object_seed)
         pos_x = random.uniform(-0.05, 0.05) * randomness_scale
         pos_y = random.uniform(-0.05, 0.05) * randomness_scale
-        position = np.array([pos_x, pos_y, 0.0])
-        random_pose = sapien.Pose(position)
+        position = np.array([0, 0, 0.0])
+        random_pose = sapien.Pose(position, [0.707, 0, 0, 0.707] )
         return random_pose
     
     def generate_random_object_texture(self):
@@ -81,6 +81,8 @@ class DClawEnv(BaseSimulationEnv):
                 default_color = np.array([1, 0, 0, 1])
 
             for visual in link.get_visual_bodies():
+                if link.get_name() == "dclaw_up":
+                    continue
                 for geom in visual.get_render_shapes():
                     mat = geom.material
                     mat.set_base_color(default_color)

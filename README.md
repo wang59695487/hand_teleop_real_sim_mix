@@ -1,4 +1,6 @@
 # TODO
+- no qpos
+- larger batch size
 
 # Usage
 ## Demo replay
