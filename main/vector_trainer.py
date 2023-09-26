@@ -15,6 +15,7 @@ import wandb
 from numpy import random
 from omegaconf import OmegaConf
 from sklearn.model_selection import train_test_split
+from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchvision import transforms
 from tqdm import tqdm
@@ -44,6 +45,16 @@ class VecTrainer:
 
         self.init_model(args)
         self.criterion = ACTLoss(args.w_kl_loss)
+        if args.finetune_backbone:
+            self.optimizer = AdamW(self.model.parameters(), args.max_lr,
+                weight_decay=args.wd_coef)
+        else:
+            params = []
+            for name, p in self.model.named_parameters():
+                if not name.startswith("backbone"):
+                    params.append({"params": p})
+            self.optimizer = AdamW(params, args.max_lr,
+                weight_decay=args.wd_coef)
         self.optimizer = self.model.policy_net.optimizer
         if self.args.max_lr > self.args.min_lr:
             self.scheduler = CosineAnnealingLR(self.optimizer,
@@ -53,7 +64,8 @@ class VecTrainer:
         self.start_time = datetime.now().strftime("%Y%m%d-%H%M%S")
         if self.args.ckpt is None:
             self.log_dir = f"logs/{self.args.task}_{self.start_time}"
-            os.makedirs(self.log_dir, exist_ok=True)
+            if not self.args.debug:
+                os.makedirs(self.log_dir, exist_ok=True)
         else:
             self.log_dir = os.path.dirname(self.args.ckpt)
 
@@ -353,14 +365,8 @@ class VecTrainer:
                     image = torch.moveaxis(obs["relocate_view-rgb"], -1, 0)[None, ...]
                     robot_qpos = np.concatenate([env.robot.get_qpos(),env.ee_link.get_pose().p,env.ee_link.get_pose().q])
                     robot_qpos = torch.from_numpy(robot_qpos[None, ...]).to(self.args.device)
-                    if self.args.get_obj_pose:
-                        obj_pose = env.manipulated_object.get_pose()
-                        obj_pose = np.concatenate([obj_pose.p, obj_pose.q])
-                        obj_pose = torch.from_numpy(obj_pose)[None, :].to(self.args.device)
-                    else:
-                        obj_pose = None
 
-                    action = self.model.get_action(image, robot_qpos, obj_pose)
+                    action = self.model.get_action(image, robot_qpos)
                     all_time_actions[[i], i:i + self.args.n_queries] = action
                     actions_for_curr_step = all_time_actions[:, i]
                     actions_populated = torch.all(actions_for_curr_step != 0, axis=1)
@@ -402,8 +408,8 @@ class VecTrainer:
                 elif task_name == "dclaw":
                     total_angle = info["object_total_rotate_angle"]
                     video_path = os.path.join(self.log_dir, f"epoch_{epoch}_{eval_idx}_{success}_{total_angle}.mp4")
-                #imageio version 2.28.1 imageio-ffmpeg version 0.4.8 scikit-image version 0.20.0
-                imageio.mimsave(video_path, video, fps=120)
+                if not self.args.debug:
+                    imageio.mimsave(video_path, video, fps=120)
                 eval_idx += 1
                 progress.update()
 
@@ -449,11 +455,9 @@ class VecTrainer:
         loss_dict_train = {}
         batch_cnt = 0
 
-        if self.args.finetune_backbone:
-            self.model.train()
-        else:
-            self.model.vision_net.eval()
-            self.model.policy_net.train()
+        self.model.train()
+        if not self.args.finetune_backbone:            
+            self.model.policy_net.model.backbones.eval()
 
         for i in tqdm(range(len(self.demo_paths_train))):
             cur_demo = self.load_demo(self.demo_paths_train[i])
@@ -470,8 +474,6 @@ class VecTrainer:
 
             robot_qpos_tensor = torch.from_numpy(np.stack([
                 cur_demo["data"][t]["robot_qpos"] for t in begs]))
-            obj_poses = self.get_obj_poses(cur_demo, begs)\
-                if self.args.get_obj_pose else None
             action_tensor = torch.from_numpy(np.stack([
                 np.stack([x["action"] for x in cur_demo["data"][b:e]])
                 for b, e in zip(begs, ends)]))
@@ -481,7 +483,7 @@ class VecTrainer:
                 dtype=torch.bool).to(self.args.device)
 
             actions_pred, mu, log_var = self.model(image_tensor,
-                robot_qpos_tensor, obj_poses, action_tensor, is_pad)
+                robot_qpos_tensor, action_tensor, is_pad)
             loss_dict = self.criterion(actions_pred, action_tensor, mu, log_var)
 
             loss_dict["loss"].backward()
@@ -536,8 +538,6 @@ class VecTrainer:
 
             robot_qpos_tensor = torch.from_numpy(np.stack([
                 cur_demo["data"][t]["robot_qpos"] for t in begs]))
-            obj_poses = self.get_obj_poses(cur_demo, begs)\
-                if self.args.get_obj_pose else None
             action_tensor = torch.from_numpy(np.stack([
                 np.stack([x["action"] for x in cur_demo["data"][b:e]])
                 for b, e in zip(begs, ends)]))
@@ -547,7 +547,7 @@ class VecTrainer:
                 dtype=torch.bool).to(self.args.device)
 
             actions_pred, mu, log_var = self.model(image_tensor,
-                robot_qpos_tensor, obj_poses, action_tensor, is_pad)
+                robot_qpos_tensor, action_tensor, is_pad)
             loss_dict = self.criterion(actions_pred, action_tensor, mu, log_var)
 
             for k in loss_dict.keys():
@@ -576,17 +576,20 @@ class VecTrainer:
             metrics.update(metrics_train)
             metrics.update(metrics_val)
 
-            self.save_checkpoint("latest")
+            if not self.args.debug:
+                self.save_checkpoint("latest")
 
             if (i + 1) % self.args.eval_freq == 0\
                     and (i + 1) >= self.args.eval_beg:
-                self.save_checkpoint(i + 1)
+                if not self.args.debug:
+                    self.save_checkpoint(i + 1)
                 env_metrics = self.eval_in_env(i + 1,
                     self.args.eval_x_steps, self.args.eval_y_steps)
                 metrics.update(env_metrics)
 
                 if metrics["avg_success"] > best_success:
-                    self.save_checkpoint("best")
+                    if not self.args.debug:
+                        self.save_checkpoint("best")
                     best_success = metrics["avg_success"]
 
             if not self.args.wandb_off:

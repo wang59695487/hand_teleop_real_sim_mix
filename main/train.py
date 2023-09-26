@@ -23,30 +23,33 @@ def parse_args():
     parser.add_argument("--arm-dof", default=6, type=int)
 
     # model
-    parser.add_argument("--backbone", default="regnet_y_3_2gf")
+    parser.add_argument("--backbone", default="resnet18")
     parser.add_argument("--n-enc-layers", default=4, type=int)
     parser.add_argument("--n-dec-layers", default=7, type=int)
     parser.add_argument("--n-heads", default=8, type=int)
-    parser.add_argument("--n-queries", default=30, type=int)
+    parser.add_argument("--n-queries", default=50, type=int)
     parser.add_argument("--hidden-dims", default=256, type=int)
-    parser.add_argument("--forward-dims", default=3200, type=int)
+    parser.add_argument("--forward-dims", default=2048, type=int)
     parser.add_argument("--dropout", default=0.1, type=float)
-    parser.add_argument("--pre_norm", action="store_true")
+    parser.add_argument("--pre-norm", action="store_true")
     parser.add_argument("--action-dims", default=22, type=int)
     parser.add_argument("--latent-dims", default=1024, type=int)
     parser.add_argument("--vision-dims", default=1512, type=int)
     parser.add_argument("--qpos-dims", default=29, type=int)
-    parser.add_argument("--get-obj-pose", action="store_true")
+    parser.add_argument("--pos-embed", default="sine")
+    parser.add_argument("--masks", action="store_true")
+    parser.add_argument("--dilation", action="store_true")
 
     # training
-    parser.add_argument("--max-lr", default=1e-3, type=float)
-    parser.add_argument("--min-lr", default=2e-6, type=float)
+    parser.add_argument("--max-lr", default=1e-5, type=float)
+    parser.add_argument("--min-lr", default=1e-5, type=float)
+    parser.add_argument("--lr-backbone", default=1e-5, type=float)
     parser.add_argument("--wd-coef", default=1e-2, type=float)
-    parser.add_argument("--batch-size", default=256, type=int)
+    parser.add_argument("--batch-size", default=128, type=int)
     parser.add_argument("--epochs", default=100, type=int)
     parser.add_argument("--grad-acc", default=1, type=int)
     parser.add_argument("--small-scale", action="store_true")
-    parser.add_argument("--w-kl-loss", default=1, type=float)
+    parser.add_argument("--w-kl-loss", default=30, type=float)
     parser.add_argument("--n-renderers", default=4, type=int)
     parser.add_argument("--finetune-backbone", action="store_true")
     parser.add_argument("--min-demo-len", default=400, type=int)
@@ -86,9 +89,6 @@ def parse_args():
         args.eval_y_steps = 2
         args.eval_beg = 0
         args.max_eval_steps = 10
-
-    if args.get_obj_pose:
-        args.qpos_dims += 7
 
     return args
 

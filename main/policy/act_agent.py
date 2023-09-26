@@ -7,6 +7,7 @@ import torch
 from torch import nn
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.transforms as transforms
 
 from models.act.detr_vae import build_ACT_model
 # from dataset.act_dataset import set_seed
@@ -15,31 +16,42 @@ import IPython
 e = IPython.embed
 
 def get_args_parser():
-    parser = argparse.ArgumentParser("Set transformer detector", add_help=False, exit_on_error=False)
-    parser.add_argument("--lr", default=1e-4, type=float) # will be overridden
+    parser = argparse.ArgumentParser('Set transformer detector', add_help=False)
+    parser.add_argument('--lr', default=1e-4, type=float) # will be overridden
     parser.add_argument("--weight_decay", default=1e-2, type=float) # will be overridden
     parser.add_argument("--kl_weight", default=10, type=int)
     # Model parameters
 
+    # Model parameters
+    # * Backbone
+    parser.add_argument('--backbone', default='resnet18', type=str, # will be overridden
+                        help="Name of the convolutional backbone to use")
+    parser.add_argument('--dilation', action='store_true',
+                        help="If true, we replace stride with dilation in the last convolutional block (DC5)")
+    parser.add_argument('--position_embedding', default='sine', type=str, choices=('sine', 'learned'),
+                        help="Type of positional embedding to use on top of the image features")
+    # parser.add_argument('--camera_names', default=[], type=list, # will be overridden
+    #                     help="A list of camera names")
+
     # * Transformer
-    parser.add_argument("--enc_layers", default=4, type=int, # will be overridden
+    parser.add_argument('--enc_layers', default=4, type=int, # will be overridden
                         help="Number of encoding layers in the transformer")
-    parser.add_argument("--dec_layers", default=6, type=int, # will be overridden
+    parser.add_argument('--dec_layers', default=6, type=int, # will be overridden
                         help="Number of decoding layers in the transformer")
-    parser.add_argument("--dim_feedforward", default=2048, type=int, # will be overridden
+    parser.add_argument('--dim_feedforward', default=2048, type=int, # will be overridden
                         help="Intermediate size of the feedforward layers in the transformer blocks")
-    parser.add_argument("--hidden_dim", default=256, type=int, # will be overridden
+    parser.add_argument('--hidden_dim', default=256, type=int, # will be overridden
                         help="Size of the embeddings (dimension of the transformer)")
-    parser.add_argument("--dropout", default=0.1, type=float,
+    parser.add_argument('--dropout', default=0.1, type=float,
                         help="Dropout applied in the transformer")
-    parser.add_argument("--nheads", default=8, type=int, # will be overridden
+    parser.add_argument('--nheads', default=8, type=int, # will be overridden
                         help="Number of attention heads inside the transformer's attentions")
-    parser.add_argument("--num_queries", default=50, type=int, # will be overridden
+    parser.add_argument('--num_queries', default=50, type=int, # will be overridden
                         help="Number of query slots")
-    parser.add_argument("--pre_norm", action="store_true")
+    parser.add_argument('--pre_norm', action='store_true')
 
     # * Segmentation
-    parser.add_argument("--masks", action="store_true",
+    parser.add_argument('--masks', action='store_true',
                         help="Train segmentation head if the flag is provided")
     
     ####Not used
@@ -55,8 +67,9 @@ def get_args_parser():
     parser.add_argument("--sim-batch-size", default=32678, type=int)
     parser.add_argument("--val-ratio", default=0.1, type=float)
     parser.add_argument("--eval-randomness-scale", default=0, type=int)
+    parser.add_argument("--randomness-rank", default=1, type=int)
+    parser.add_argument("--finetune", action="store_true")
 
-  
     return parser
 
 def kl_divergence(mu, logvar):
@@ -75,16 +88,21 @@ def kl_divergence(mu, logvar):
     return total_kld, dimension_wise_kld, mean_kld
 
 def build_ACT_model_and_optimizer(args):
-    # parser = argparse.ArgumentParser("DETR training and evaluation script", parents=[get_args_parser()])
+    # parser = argparse.ArgumentParser('DETR training and evaluation script', parents=[get_args_parser()])
     # args = parser.parse_args()
 
     # for k, v in args_override.items():
     #     setattr(args, k, v)
 
     model = build_ACT_model(args)
+    # model.cuda()
 
     param_dicts = [
-        {"params": [p for n, p in model.named_parameters()]},
+        {"params": [p for n, p in model.named_parameters() if "backbone" not in n and p.requires_grad]},
+        {
+            "params": [p for n, p in model.named_parameters() if "backbone" in n and p.requires_grad],
+            "lr": args.lr_backbone,
+        },
     ]
     optimizer = torch.optim.AdamW(param_dicts, lr=args.max_lr,
         weight_decay=args.wd_coef)
@@ -94,33 +112,35 @@ def build_ACT_model_and_optimizer(args):
 class ACTPolicy(nn.Module):
     def __init__(self, args):
         super().__init__()
-        self.args = args
         model, optimizer = build_ACT_model_and_optimizer(args)
         self.model = model # CVAE decoder
         self.optimizer = optimizer
         self.kl_weight = args.w_kl_loss
-        print(f"KL Weight {self.kl_weight}")
+        print(f'KL Weight {self.kl_weight}')
 
     def forward(self, obs, qpos, actions=None, is_pad=None):
-    
+        # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+        #                                  std=[0.229, 0.224, 0.225])
+        # obs = normalize(obs)
+
         if actions is not None: # training time
             actions = actions[:, :self.model.num_queries]
             is_pad = is_pad[:, :self.model.num_queries]
 
             a_hat, is_pad_hat, (mu, logvar) = self.model(obs, qpos, actions, is_pad)
-            total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
 
             return a_hat, mu, logvar
+            # total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
             # loss_dict = dict()
-            # all_l1 = F.l1_loss(actions, a_hat, reduction="none")
+            # all_l1 = F.l1_loss(actions, a_hat, reduction='none')
             # l1 = (all_l1 * ~is_pad.unsqueeze(-1)).mean()
-            # loss_dict["l1"] = l1
-            # loss_dict["kl"] = total_kld[0]
-            # loss_dict["loss"] = loss_dict["l1"] + loss_dict["kl"] * self.kl_weight
+            # loss_dict['l1'] = l1
+            # loss_dict['kl'] = total_kld[0]
+            # loss_dict['loss'] = loss_dict['l1'] + loss_dict['kl'] * self.kl_weight
             # return loss_dict
 
         else: # inference time
-            a_hat, is_pad_hat, (mu, logvar) = self.model(obs, qpos) # no action, sample from prior
+            a_hat, _, (mu, logvar) = self.model(obs, qpos) # no action, sample from prior
             return a_hat, mu, logvar
 
     def configure_optimizers(self):
@@ -128,24 +148,28 @@ class ACTPolicy(nn.Module):
 
 class ActAgent(object):
     def __init__(self, args):
+        
+        enc_layers = 4
+        dec_layers = 7
+        nheads = 8
+        policy_config = {'lr': args['lr'],
+                         'weight_decay': args['weight_decay'],
+                         'num_queries': args['num_queries'],
+                         'kl_weight': args['kl_weight'],
+                         'hidden_dim': args['hidden_dim'],
+                         'dim_feedforward': args['dim_feedforward'],
+                         'lr_backbone': 1e-5,
+                         'backbone': 'resnet18',
+                         'enc_layers': enc_layers,
+                         'dec_layers': dec_layers,
+                         'nheads': nheads,
+                         }
 
-        policy_config = {
-            "lr": args.lr,
-            "weight_decay": args.wd_coef,
-            "num_queries": args.n_queries,
-            "kl_weight": args.w_kl_loss,
-            "hidden_dim": args.hidden_dims,
-            "dim_feedforward": args.forward_dims,
-            "enc_layers": args.n_enc_layers,
-            "dec_layers": args.n_dec_layers,
-            "nheads": args.n_heads,
-        }
-
-        # set_seed(args.seed)
+        # set_seed(args['seed'])
         self.policy = ACTPolicy(policy_config)
-        self.policy.to(args.device)
+        self.policy.cuda()
         self.optimizer = self.policy.configure_optimizers()
-
+   
     def compute_loss(self, obs, qpos, actions, is_pad):
         loss_dict = self.policy(obs, qpos, actions, is_pad)
         return loss_dict
@@ -163,7 +187,7 @@ class ActAgent(object):
 
         if action is not None:
             assert is_pad is not None
-            all_l1 = F.l1_loss(pred_action, action, reduction="none")
+            all_l1 = F.l1_loss(pred_action, action, reduction='none')
             l1 = (all_l1 * ~is_pad.unsqueeze(-1)).mean()
             return l1.detach().cpu().item()
         
@@ -171,15 +195,41 @@ class ActAgent(object):
     
     def save(self, weight_path, args):
         torch.save({
-            "act_network_state_dict" : self.policy.state_dict(),
-            "args" : args,
+            'act_network_state_dict' : self.policy.state_dict(),
+            'args' : args,
             }, weight_path
         )
     
     def load(self, weight_path):
         act_network_checkpoint = torch.load(weight_path)
-        self.policy.load_state_dict(act_network_checkpoint["act_network_state_dict"])
-        args = act_network_checkpoint["args"]       
+        self.policy.load_state_dict(act_network_checkpoint['act_network_state_dict'])
+        args = act_network_checkpoint['args']       
+        return args
+    
+    def finetune(self, args):
+        act_network_checkpoint = torch.load(args["ckpt"])
+        self.policy.load_state_dict(act_network_checkpoint['act_network_state_dict'])
+        
+        for name, param in self.policy.model.named_parameters():
+            param.requires_grad = False
+       
+        for param in self.policy.model.encoder.parameters():
+            if param.dim() > 1:
+                nn.init.xavier_uniform_(param)
+                param.requires_grad = True
+            
+        for name, param in self.policy.model.named_parameters():
+            if "encoder_obs" in name or "input_proj_obs" in name:
+                if param.dim() > 1:
+                    nn.init.xavier_uniform_(param)
+                param.requires_grad = True
+
+        ##############Initialize optimizer and BatchNorm##################
+        self.policy.model.real_sim_bn.reset_running_stats()
+        self.policy.model.real_sim_bn.reset_parameters()
+        pg = [p for _ , p in self.policy.model.named_parameters() if p.requires_grad]
+        self.optimizer = torch.optim.AdamW(pg, lr=args['lr'], weight_decay=args['weight_decay'])
+        args = act_network_checkpoint['args']       
         return args
     
         

@@ -54,7 +54,7 @@ class Agent(nn.Module):
         super().__init__()
         self.args = args
 
-        self.init_vision_net(args)
+        # self.init_vision_net(args)
         self.init_policy_net(args)
 
     def init_vision_net(self, args):
@@ -68,20 +68,26 @@ class Agent(nn.Module):
     def init_policy_net(self, args):
         self.policy_net = ACTPolicy(args)
 
-    def forward(self, images, robot_qpos, obj_pose=None,
-            action=None, is_pad=None):
-        vis_feats = self.get_image_feats(images)
-        if obj_pose is not None:
-            # add current object pose
-            robot_qpos = torch.cat([robot_qpos, obj_pose], dim=-1)
-        actions_pred, mu, log_var = self.policy_net(vis_feats, robot_qpos,
+    # def forward(self, images, robot_qpos, obj_pose=None,
+    #         action=None, is_pad=None):
+    #     vis_feats = self.get_image_feats(images)
+    #     if obj_pose is not None:
+    #         # add current object pose
+    #         robot_qpos = torch.cat([robot_qpos, obj_pose], dim=-1)
+    #     actions_pred, mu, log_var = self.policy_net(vis_feats, robot_qpos,
+    #         action, is_pad)
+
+    #     return actions_pred, mu, log_var
+
+    def forward(self, images, robot_qpos, action=None, is_pad=None):
+        actions_pred, mu, log_var = self.policy_net(images, robot_qpos,
             action, is_pad)
 
         return actions_pred, mu, log_var
 
     @torch.no_grad()
-    def get_action(self, images, qpos, obj_pose=None, ret_tensor=True):
-        action, _, _ = self(images, qpos, obj_pose)
+    def get_action(self, images, qpos, ret_tensor=True):
+        action, _, _ = self(images, qpos)
         if not ret_tensor:
             action = action.cpu().numpy()
 
