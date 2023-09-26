@@ -1,6 +1,7 @@
 # TODO
-- no qpos
-- larger batch size
+- random length
+- faster eval_in_env
+- eval of different levels
 
 # Usage
 ## Demo replay

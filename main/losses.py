@@ -23,11 +23,12 @@ class ACTLoss(nn.Module):
         super().__init__()
         self.w_kl_loss = w_kl_loss
         self.kl_div_fn = kl_divergence
-        self.act_loss_fn = nn.L1Loss()
+        self.act_loss_fn = nn.L1Loss(reduction="none")
 
-    def forward(self, act_pred, act_true, mu, log_var):
+    def forward(self, act_pred, act_true, is_pad, mu, log_var):
         kl_div, _, _ = self.kl_div_fn(mu, log_var)
         act_loss = self.act_loss_fn(act_pred, act_true)
+        act_loss = (act_loss * ~is_pad.unsqueeze(dim=-1)).mean()
         total_loss = act_loss + kl_div[0] * self.w_kl_loss
         loss_dict = {
             "action_loss": act_loss,

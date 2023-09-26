@@ -481,10 +481,16 @@ class VecTrainer:
             action_tensor = action_tensor.to(self.args.device)
             is_pad = torch.zeros(action_tensor.size()[:-1],
                 dtype=torch.bool).to(self.args.device)
+            if self.args.rnd_len:
+                rnd_ends = np.random.randint(self.args.min_eps_len,
+                    self.args.n_queries, size=self.args.batch_size)
+                for i in range(self.args.batch_size):
+                    action_tensor[i, rnd_ends[i]:] = 0
+                    is_pad[i, rnd_ends[i]:] = True
 
             actions_pred, mu, log_var = self.model(image_tensor,
                 robot_qpos_tensor, action_tensor, is_pad)
-            loss_dict = self.criterion(actions_pred, action_tensor, mu, log_var)
+            loss_dict = self.criterion(actions_pred, action_tensor, is_pad, mu, log_var)
 
             loss_dict["loss"].backward()
             for k in loss_dict.keys():
@@ -548,7 +554,7 @@ class VecTrainer:
 
             actions_pred, mu, log_var = self.model(image_tensor,
                 robot_qpos_tensor, action_tensor, is_pad)
-            loss_dict = self.criterion(actions_pred, action_tensor, mu, log_var)
+            loss_dict = self.criterion(actions_pred, action_tensor, is_pad, mu, log_var)
 
             for k in loss_dict.keys():
                 loss_dict_val[f"{k}/val"] = loss_dict_val.get(f"{k}/val", 0) + loss_dict[k].detach().cpu().item()
@@ -566,7 +572,7 @@ class VecTrainer:
         best_success = 0
 
         player_create_fn = [partial(RenderPlayer.from_demo, demo=self.sample_demo,
-            robot_name="xarm6_allegro_modified_finger") for i in range(self.num_render_workers)]
+            robot_name=self.args.robot) for i in range(self.num_render_workers)]
         self.vec_player = VecPlayer(player_create_fn)
 
         for i in range(self.epoch_start, self.args.epochs):

@@ -54,6 +54,7 @@ def parse_args():
     parser.add_argument("--finetune-backbone", action="store_true")
     parser.add_argument("--min-demo-len", default=400, type=int)
     parser.add_argument("--rnd-lvl", default=1, type=int)
+    parser.add_argument("--rnd-len", action="store_true")
 
     # evaluation
     parser.add_argument("--eval-x-steps", default=4, type=int)
@@ -89,6 +90,9 @@ def parse_args():
         args.eval_y_steps = 2
         args.eval_beg = 0
         args.max_eval_steps = 10
+    
+    if args.rnd_len:
+        args.min_eps_len = int(args.n_queries * 0.6)
 
     return args
 
