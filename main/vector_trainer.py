@@ -4,6 +4,7 @@ import pickle
 from copy import deepcopy
 from datetime import datetime
 from functools import partial
+from multiprocessing import Pool
 from typing import Optional
 
 import imageio
@@ -202,7 +203,7 @@ class VecTrainer:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
         if not ckpt_path.endswith("best.pth"):
             self.epoch_start = int(os.path.basename(ckpt_path) \
-                                   .split(".")[0].split("_")[1]) - 1
+                .split(".")[0].split("_")[1]) - 1
         self.log_dir = os.path.dirname(ckpt_path)
 
     def save_checkpoint(self, epoch):
@@ -214,13 +215,6 @@ class VecTrainer:
         torch.save(state_dict, save_path)
 
     def generate_random_object_pose(self, randomness_scale=1):
-        # Small Random
-        # pos_x = self.np_random.uniform(low=-0.1, high=0) * randomness_scale
-        # pos_y = self.np_random.uniform(low=0.1, high=0.2) * randomness_scale
-        # position = np.array([pos_x, pos_y, 0.1])
-        ####### new random ########
-        # pos_x = self.np_random.uniform(low=-0.1, high=0.1) * randomness_scale
-        # pos_y = self.np_random.uniform(low=0.2, high=0.3) * randomness_scale
         random.seed(self.args.seed)
         pos_x = random.uniform(-0.1, 0.1) * randomness_scale
         pos_y = random.uniform(0.2, 0.3) * randomness_scale
@@ -255,7 +249,7 @@ class VecTrainer:
         env_params['robot_name'] = robot_name
         env_params['use_visual_obs'] = True
         env_params['use_gui'] = False
-        env_params['light_mode'] = "default" if self.args.rnd_lvl < 3 else "random"
+        env_params['light_mode'] = "default" if self.args.eval_rnd_lvl < 3 else "random"
 
         env_params["device"] = "cuda"
 
@@ -311,7 +305,7 @@ class VecTrainer:
 
         # since in simulation, we always use simulated data, so sim_real_label is always 0
         sim_real_label = [0]
-        var_object = 0 if self.args.rnd_lvl < 4 else 0.1
+        var_object = 0 if self.args.eval_rnd_lvl < 4 else 0.1
         for x in np.linspace(-0.1 - var_object, 0.1 + var_object, x_steps):        # -0.08 0.08 /// -0.05 0
             for y in np.linspace(0.2 - var_object, 0.3 + var_object, y_steps):  # 0.12 0.18 /// 0.12 0.32
                 video = []
@@ -322,9 +316,9 @@ class VecTrainer:
                 env.reset()
 
                 ########### Add Plate Randomness ############
-                if self.args.rnd_lvl in [2,3,6] and task_name == "pick_place":
+                if self.args.eval_rnd_lvl in [2,3,6] and task_name == "pick_place":
                     ########### Randomize the plate pose ############
-                    var_plate = 0.05 if self.args.rnd_lvl in [2] else 0.1
+                    var_plate = 0.05 if self.args.eval_rnd_lvl in [2] else 0.1
                     print("############################Randomize the plate pose##################")
                     x2 = np.random.uniform(-var_plate, var_plate)
                     y2 = np.random.uniform(-var_plate, var_plate)
@@ -335,12 +329,12 @@ class VecTrainer:
                     env.plate.set_pose(sapien.Pose([-0.005, -0.12, 0],[1,0,0,0]))
 
                 ############## Add Texture Randomness ############
-                if self.args.rnd_lvl in [4,6] :
+                if self.args.eval_rnd_lvl in [4,6] :
                     #env.random_light(self.args.rnd_lvl-2)
                     env.generate_random_object_texture(2)
                 
                 ############## Add Light Randomness ############
-                if self.args.rnd_lvl in [5,6] :
+                if self.args.eval_rnd_lvl in [5,6] :
                     env.random_light(2)
 
                 arm_joint_names = [f"joint{i}" for i in range(1, 8)]
@@ -404,10 +398,10 @@ class VecTrainer:
                 #if success or epoch == "best":
                 if task_name == "pick_place":
                     is_lifted = info["is_object_lifted"]
-                    video_path = os.path.join(self.log_dir, f"epoch_{epoch}_{eval_idx}_{success}_{is_lifted}_{(x, y)}.mp4")
+                    video_path = os.path.join(self.log_dir, f"epoch_{epoch}_{eval_idx}_{success}_{is_lifted}_{(x, y)}_level{self.args.eval_rnd_lvl}.mp4")
                 elif task_name == "dclaw":
                     total_angle = info["object_total_rotate_angle"]
-                    video_path = os.path.join(self.log_dir, f"epoch_{epoch}_{eval_idx}_{success}_{total_angle}.mp4")
+                    video_path = os.path.join(self.log_dir, f"epoch_{epoch}_{eval_idx}_{success}_{total_angle}_level{self.args.eval_rnd_lvl}.mp4")
                 if not self.args.debug:
                     imageio.mimsave(video_path, video, fps=120)
                 eval_idx += 1
@@ -578,7 +572,7 @@ class VecTrainer:
         for i in range(self.epoch_start, self.args.epochs):
             metrics_train = self._train_epoch()
             metrics_val = self._eval_epoch()
-            metrics = {"epoch": i}
+            metrics = {"epoch": i + 1}
             metrics.update(metrics_train)
             metrics.update(metrics_val)
 
@@ -591,6 +585,8 @@ class VecTrainer:
                     self.save_checkpoint(i + 1)
                 env_metrics = self.eval_in_env(i + 1,
                     self.args.eval_x_steps, self.args.eval_y_steps)
+                # env_metrics = self.vector_eval_in_env(i + 1,
+                #     self.args.eval_x_steps, self.args.eval_y_steps)
                 metrics.update(env_metrics)
 
                 if metrics["avg_success"] > best_success:
@@ -600,13 +596,3 @@ class VecTrainer:
 
             if not self.args.wandb_off:
                 wandb.log(metrics)
-
-
-if __name__ == "__main__":
-    demo_len = 2373
-    n_queries = 50
-    # start = demo_len % n_queries
-    start = np.random.randint(0, demo_len % n_queries + 1)
-    indices = np.arange(start, demo_len - 50, n_queries)
-    beg_end = [(x, x + 50) for x in indices]
-    print(indices)

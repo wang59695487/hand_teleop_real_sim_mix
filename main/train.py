@@ -53,7 +53,7 @@ def parse_args():
     parser.add_argument("--n-renderers", default=4, type=int)
     parser.add_argument("--finetune-backbone", action="store_true")
     parser.add_argument("--min-demo-len", default=400, type=int)
-    parser.add_argument("--rnd-lvl", default=1, type=int)
+    parser.add_argument("--train-rnd-lvl", default=1, type=int)
     parser.add_argument("--rnd-len", action="store_true")
 
     # evaluation
@@ -67,6 +67,7 @@ def parse_args():
     parser.add_argument("--eval-freq", default=5, type=int)
     parser.add_argument("--max-eval-steps", default=1200, type=int)
     parser.add_argument("--w-action-ema", default=0.01, type=float)
+    parser.add_argument("--eval-rnd-lvl", default=1, type=int)
 
     # others
     parser.add_argument("--debug", action="store_true")
@@ -116,14 +117,16 @@ def main():
 
     if not args.eval_only:
         trainer.train()
+        print(f"{trainer.log_dir}/model_best.pth")
+        print(trainer.log_dir)
         trainer.load_checkpoint(f"{trainer.log_dir}/model_best.pth")
 
-    avg_success = trainer.eval_in_env("best",
+    metrics = trainer.eval_in_env("best",
         trainer.args.final_x_steps, trainer.args.final_y_steps)
-    print(f"Average success rate: {avg_success:.4f}")
-    wandb.log({"final_success": avg_success})
-
-    wandb.finish()
+    print(f"Average success rate: {metrics['avg_success']:.4f}")
+    if not args.wandb_off:
+        wandb.log({"final_success": metrics['avg_success']})
+        wandb.finish()
 
 
 if __name__ == "__main__":
