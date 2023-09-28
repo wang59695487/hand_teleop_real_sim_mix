@@ -80,14 +80,20 @@ class Agent(nn.Module):
     #     return actions_pred, mu, log_var
 
     def forward(self, images, robot_qpos, action=None, is_pad=None):
-        actions_pred, mu, log_var = self.policy_net(images, robot_qpos,
-            action, is_pad)
+        if self.args.dann:
+            actions_pred, mu, log_var, domain_preds = self.policy_net(images,
+                robot_qpos, action, is_pad)
 
-        return actions_pred, mu, log_var
+            return actions_pred, mu, log_var, domain_preds
+        else:
+            actions_pred, mu, log_var = self.policy_net(images, robot_qpos,
+                action, is_pad)
+
+            return actions_pred, mu, log_var
 
     @torch.no_grad()
     def get_action(self, images, qpos, ret_tensor=True):
-        action, _, _ = self(images, qpos)
+        action = self(images, qpos)[0]
         if not ret_tensor:
             action = action.cpu().numpy()
 

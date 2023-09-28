@@ -39,6 +39,7 @@ def parse_args():
     parser.add_argument("--pos-embed", default="sine")
     parser.add_argument("--masks", action="store_true")
     parser.add_argument("--dilation", action="store_true")
+    parser.add_argument("--dann", action="store_true")
 
     # training
     parser.add_argument("--max-lr", default=1e-5, type=float)

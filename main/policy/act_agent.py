@@ -112,6 +112,7 @@ def build_ACT_model_and_optimizer(args):
 class ACTPolicy(nn.Module):
     def __init__(self, args):
         super().__init__()
+        self.args = args
         model, optimizer = build_ACT_model_and_optimizer(args)
         self.model = model # CVAE decoder
         self.optimizer = optimizer
@@ -127,20 +128,15 @@ class ACTPolicy(nn.Module):
             actions = actions[:, :self.model.num_queries]
             is_pad = is_pad[:, :self.model.num_queries]
 
-            a_hat, is_pad_hat, (mu, logvar) = self.model(obs, qpos, actions, is_pad)
-
-            return a_hat, mu, logvar
-            # total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
-            # loss_dict = dict()
-            # all_l1 = F.l1_loss(actions, a_hat, reduction='none')
-            # l1 = (all_l1 * ~is_pad.unsqueeze(-1)).mean()
-            # loss_dict['l1'] = l1
-            # loss_dict['kl'] = total_kld[0]
-            # loss_dict['loss'] = loss_dict['l1'] + loss_dict['kl'] * self.kl_weight
-            # return loss_dict
+            if self.args.dann:
+                a_hat, is_pad_hat, (mu, logvar), domain_preds = self.model(obs, qpos, actions, is_pad)
+                return a_hat, mu, logvar, domain_preds
+            else:
+                a_hat, is_pad_hat, (mu, logvar) = self.model(obs, qpos, actions, is_pad)
+                return a_hat, mu, logvar
 
         else: # inference time
-            a_hat, _, (mu, logvar) = self.model(obs, qpos) # no action, sample from prior
+            a_hat, _, (mu, logvar) = self.model(obs, qpos)[:3] # no action, sample from prior
             return a_hat, mu, logvar
 
     def configure_optimizers(self):

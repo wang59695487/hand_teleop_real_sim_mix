@@ -11,6 +11,7 @@ import imageio
 import numpy as np
 import sapien.core as sapien
 import torch
+import torch.nn as nn
 import transforms3d
 import wandb
 from numpy import random
@@ -46,17 +47,19 @@ class VecTrainer:
 
         self.init_model(args)
         self.criterion = ACTLoss(args.w_kl_loss)
+        if args.dann:
+            self.domain_criterion = nn.BCEWithLogitsLoss()
         if args.finetune_backbone:
             self.optimizer = AdamW(self.model.parameters(), args.max_lr,
                 weight_decay=args.wd_coef)
         else:
             params = []
             for name, p in self.model.named_parameters():
-                if not name.startswith("backbone"):
+                if "backbone" not in name:
                     params.append({"params": p})
             self.optimizer = AdamW(params, args.max_lr,
                 weight_decay=args.wd_coef)
-        self.optimizer = self.model.policy_net.optimizer
+
         if self.args.max_lr > self.args.min_lr:
             self.scheduler = CosineAnnealingLR(self.optimizer,
                 self.args.epochs * len(self.demo_paths_train) // self.args.grad_acc,
@@ -125,9 +128,6 @@ class VecTrainer:
 
     def init_player(self, demo):
         meta_data = deepcopy(demo["meta_data"])
-        # task_name = meta_data["env_kwargs"]["task_name"]
-        # meta_data["env_kwargs"].pop("task_name")
-        # meta_data["task_name"] = self.args.task
         robot_name = self.args.robot
         data = demo["data"]
         use_visual_obs = True
@@ -488,9 +488,20 @@ class VecTrainer:
                     action_tensor[i, rnd_ends[i]:] = 0
                     is_pad[i, rnd_ends[i]:] = True
 
-            actions_pred, mu, log_var = self.model(image_tensor,
-                robot_qpos_tensor, action_tensor, is_pad)
-            loss_dict = self.criterion(actions_pred, action_tensor, is_pad, mu, log_var)
+            if self.args.dann:
+                actions_pred, mu, log_var, domain_preds = self.model(image_tensor,
+                    robot_qpos_tensor, action_tensor, is_pad)
+                # TODO: mix real and sim and get domain labels
+                loss_dict = self.criterion(actions_pred, action_tensor, is_pad, mu, log_var)
+                domains = torch.zeros(actions_pred.size(0), 1, dtype=torch.float,
+                    device=self.args.device)
+                domain_loss = self.domain_criterion(domain_preds, domains)
+                loss_dict["domain_loss"] = domain_loss
+                loss_dict["loss"] += loss_dict["domain_loss"]
+            else:
+                actions_pred, mu, log_var = self.model(image_tensor,
+                    robot_qpos_tensor, action_tensor, is_pad)
+                loss_dict = self.criterion(actions_pred, action_tensor, is_pad, mu, log_var)
 
             loss_dict["loss"].backward()
             for k in loss_dict.keys():
@@ -552,9 +563,20 @@ class VecTrainer:
             is_pad = torch.zeros(action_tensor.size()[:-1],
                 dtype=torch.bool).to(self.args.device)
 
-            actions_pred, mu, log_var = self.model(image_tensor,
-                robot_qpos_tensor, action_tensor, is_pad)
-            loss_dict = self.criterion(actions_pred, action_tensor, is_pad, mu, log_var)
+            if self.args.dann:
+                actions_pred, mu, log_var, domain_preds = self.model(image_tensor,
+                    robot_qpos_tensor, action_tensor, is_pad)
+                # TODO: mix real and sim and get domain labels
+                loss_dict = self.criterion(actions_pred, action_tensor, is_pad, mu, log_var)
+                domains = torch.zeros(actions_pred.size(0), 1, dtype=torch.float,
+                    device=self.args.device)
+                domain_loss = self.domain_criterion(domain_preds, domains)
+                loss_dict["domain_loss"] = domain_loss
+                loss_dict["loss"] += loss_dict["domain_loss"]
+            else:
+                actions_pred, mu, log_var = self.model(image_tensor,
+                    robot_qpos_tensor, action_tensor, is_pad)
+                loss_dict = self.criterion(actions_pred, action_tensor, is_pad, mu, log_var)
 
             for k in loss_dict.keys():
                 loss_dict_val[f"{k}/val"] = loss_dict_val.get(f"{k}/val", 0) + loss_dict[k].detach().cpu().item()
@@ -602,3 +624,9 @@ class VecTrainer:
 
             if not self.args.wandb_off:
                 wandb.log(metrics)
+
+
+if __name__ == "__main__":
+    with open("real/pick_place_mustard_bottle_large_scale/0000.pkl", "rb") as f:
+        data = pickle.load(f)
+    print(1)
