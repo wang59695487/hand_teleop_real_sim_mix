@@ -437,7 +437,7 @@ class VecTrainer:
             self.vec_player.render_async()
             image_dict = self.vec_player.render_wait()
             images = image_dict["Color"].contiguous()
-            images = images[:, 0, :, :, :3].permute((0, 3, 1, 2))
+            images = images[:, 0, :, :, :3].permute((0, 3, 1, 2)).clone()
 
             image_tensor.append(images)
 
