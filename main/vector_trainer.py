@@ -86,12 +86,18 @@ class VecTrainer:
         self.model = Agent(args).to(args.device)
 
     def load_data(self, args):
+        demo_paths_all = sorted(glob.glob(os.path.join(args.demo_folder,
+            "*.pickle")))
         if args.small_scale:
             demo_paths = sorted(glob.glob(os.path.join(args.demo_folder,
                 "*_1.pickle")))
+        elif args.scale < 100:
+            demo_indices = [int(os.path.basename(x).split(".")[0].split("_")[-1]) for x in demo_paths_all]
+            demo_paths = [path for path, idx in zip(demo_paths_all, demo_indices) if idx <= args.scale]
+        elif args.scale == 100:
+            demo_paths = demo_paths_all
         else:
-            demo_paths = sorted(glob.glob(os.path.join(args.demo_folder,
-                "*.pickle")))
+            demo_paths = demo_paths_all
         if args.one_demo:
             self.demo_paths_train = [demo_paths[0]]
             self.demo_paths_val = [demo_paths[0]]

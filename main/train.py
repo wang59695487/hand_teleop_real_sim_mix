@@ -49,6 +49,7 @@ def parse_args():
     parser.add_argument("--epochs", default=100, type=int)
     parser.add_argument("--grad-acc", default=1, type=int)
     parser.add_argument("--small-scale", action="store_true")
+    parser.add_argument("--scale", default=100, type=int)
     parser.add_argument("--w-kl-loss", default=30, type=float)
     parser.add_argument("--n-renderers", default=4, type=int)
     parser.add_argument("--finetune-backbone", action="store_true")
