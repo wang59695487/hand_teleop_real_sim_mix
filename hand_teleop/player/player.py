@@ -18,6 +18,7 @@ from hand_teleop.env.rl_env.pick_place_env import PickPlaceRLEnv
 from hand_teleop.env.rl_env.insert_object_env import InsertObjectRLEnv
 from hand_teleop.env.rl_env.hammer_env import HammerRLEnv
 from hand_teleop.env.rl_env.dclaw_env import DClawRLEnv
+from hand_teleop.env.rl_env.cup_stack_env import CupStackRLEnv
 
 from hand_teleop.utils.common_robot_utils import LPFilter
 from hand_teleop.kinematics.mano_robot_hand import MANORobotHand
@@ -896,7 +897,81 @@ class InsertObjectEnvPlayer(DataPlayer):
             baked_data["action"].append(baked_data["action"][-1])
 
         return baked_data
-    
+
+class CupStackEnvPlayer(DataPlayer):
+    def __init__(self, meta_data: Dict[str, Any], data: Dict[str, Any], env: PickPlaceRLEnv,
+                 zero_joint_pos: Optional[np.ndarray] = None):
+        super().__init__(meta_data, data, env, zero_joint_pos)
+
+    def bake_demonstration(self, retargeting: Optional[PositionRetargeting] = None, method="tip_middle", indices=None):
+        use_human_hand = self.human_robot_hand is not None and retargeting is not None
+        baked_data = dict(obs=[], robot_qpos=[], state=[], action=[], robot_qvel=[], ee_pose=[])
+        manipulated_object = self.env.manipulated_object
+        use_local_pose = False
+
+        self.scene.unpack(self.get_sim_data(0))
+
+        init_pose = manipulated_object.get_pose()
+        baked_data["init_pose"] = np.concatenate([init_pose.p, init_pose.q])
+        # self.scene.step()
+
+        for i in range(self.meta_data["data_len"]):
+            # for _ in range(self.env.frame_skip):
+            #     self.scene.step()
+            self.scene.unpack(self.get_sim_data(i))
+            # Robot qpos
+            if use_human_hand:
+                contact_finger_index = self.human_robot_hand.check_contact_finger([manipulated_object])
+                if method == "tip_middle":
+                    qpos = self.get_finger_tip_middle_retargeting_result(self.human_robot_hand, retargeting, indices,
+                                                                            use_root_local_pose=use_local_pose)
+                elif method == "tip":
+                    qpos = self.get_finger_tip_retargeting_result(self.human_robot_hand, retargeting, indices,
+                                                                    use_root_local_pose=use_local_pose)
+                else:
+                    raise ValueError(f"Retargeting method {method} is not supported")
+            else:
+                if self.env.robot_name == "mano":
+                    qpos = self.human_robot_hand.robot.get_qpos()
+                    qvel = self.human_robot_hand.robot.get_qvel()
+                else:
+                    qpos = self.env.robot.get_qpos()
+                    qvel = self.env.robot.get_qvel()
+                baked_data["robot_qvel"].append(qvel)
+            baked_data["robot_qpos"].append(qpos)
+            ee_pose = self.env.ee_link.get_pose()
+            baked_data["ee_pose"].append(np.concatenate([ee_pose.p, ee_pose.q]))
+            self.env.robot.set_qpos(qpos)
+            if self.env.robot_name == "mano":
+                # NOTE: Action i is the transition from state i to state i+1
+                baked_data["action"].append(self.human_robot_hand.robot.get_drive_target())
+                self.env.robot.set_qvel(qvel)
+            else:
+                if use_human_hand:
+                    if i >= 1:
+                        baked_data["action"].append(
+                            self.compute_action_from_states(baked_data["robot_qpos"][i - 1], qpos,
+                                                            np.sum(contact_finger_index) > 0))
+                    if i >= 2:
+                        duration = self.env.frame_skip * self.scene.get_timestep()
+                        finger_qvel = (baked_data["action"][-1][6:] - baked_data["action"][-2][6:]) / duration
+                        root_qvel = baked_data["action"][-1][:6]
+                        self.env.robot.set_qvel(np.concatenate([root_qvel, finger_qvel]))
+                else:
+                    baked_data["action"].append(self.env.robot.get_drive_target())
+                    self.env.robot.set_qvel(qvel)
+
+            # Environment observation
+            baked_data["obs"].append(self.env.get_observation())
+            # Environment state
+            baked_data["state"].append(self.collect_env_state([manipulated_object]))
+
+        if use_human_hand:
+            baked_data["action"].append(baked_data["action"][-1])
+
+        return baked_data
+
+
 def handqpos2angle(hand_qpos):
     delta_angles = []
     for i in range(0,len(hand_qpos)):
@@ -1031,6 +1106,8 @@ def bake_visual_demonstration_test(retarget=False,idx=0):
         player = InsertObjectEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
     elif task_name == 'mug_flip':
         player = FlipMugEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
+    elif task_name == 'cup_stack':
+       player = CupStackEnvPlayer(meta_data, data, env, zero_joint_pos=env_params["zero_joint_pos"])
     else:
         raise NotImplementedError
 
@@ -1211,6 +1288,8 @@ def bake_visual_real_demonstration_test(retarget=False):
         env = InsertObjectRLEnv(**env_params)
     elif task_name == 'mug_flip':
         env = MugFlipRLEnv(**env_params)
+    elif task_name == 'cup_stack':
+       env = CupStackRLEnv(**env_params)
     else:
         raise NotImplementedError
     

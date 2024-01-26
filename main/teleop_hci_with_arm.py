@@ -8,6 +8,7 @@ from hand_teleop.env.sim_env.constructor import add_default_scene_light
 from hand_teleop.env.sim_env.relocate_env import RelocateEnv
 from hand_teleop.env.sim_env.table_door_env import TableDoorEnv
 from hand_teleop.env.sim_env.pick_place_env import PickPlaceEnv
+from hand_teleop.env.sim_env.cup_stack_env import CupStackEnv
 from hand_teleop.env.sim_env.laptop_env import LaptopEnv
 from hand_teleop.env.sim_env.insert_object_env import InsertObjectEnv
 from hand_teleop.env.sim_env.hammer_env import HammerEnv
@@ -69,6 +70,12 @@ def main():
         env_dict = dict(task_name=task_name)
     elif task_name == "pick_place":
         env = PickPlaceEnv(object_name=object_name, object_seed = demo_name, frame_skip=frame_skip, object_scale=object_scale, randomness_scale=randomness_scale)
+        env.reset_env()
+        env_dict = dict(task_name=task_name, object_name=object_name, object_scale=object_scale, randomness_scale=randomness_scale, 
+                        init_obj_pos=env.init_pose, init_target_pos=env.target_pose)
+        demo_name = '{}_{}'.format(object_name, demo_name)
+    elif task_name == "cup_stack":
+        env = CupStackEnv(object_name=object_name, object_seed = demo_name, frame_skip=frame_skip, object_scale=object_scale, randomness_scale=randomness_scale)
         env.reset_env()
         env_dict = dict(task_name=task_name, object_name=object_name, object_scale=object_scale, randomness_scale=randomness_scale, 
                         init_obj_pos=env.init_pose, init_target_pos=env.target_pose)
